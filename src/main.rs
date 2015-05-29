@@ -126,7 +126,7 @@ impl<'a> Algebra for &'a [Extent] {
     }
 }
 
-/// Returns extents from the first list that are contained in extents
+/// Finds extents from the first list that are contained in extents
 /// from the second list.
 ///
 /// Akin to finding needles in haystacks.
@@ -166,7 +166,7 @@ impl<A, B> Algebra for ContainedIn<A, B>
     }
 }
 
-/// Returns extents from the first list that contain extents from the
+/// Finds extents from the first list that contain extents from the
 /// second list.
 ///
 /// Akin to finding haystacks with needles in them.
@@ -271,6 +271,8 @@ impl<A, B> Algebra for NotContaining<A, B>
     }
 }
 
+/// Creates extents that extents from both lists would be a subextent
+/// of.
 #[derive(Debug,Copy,Clone)]
 pub struct BothOf<A, B>
     where A: Algebra,
@@ -287,9 +289,9 @@ impl<A, B> Algebra for BothOf<A, B>
     // TODO: test
     fn tau(&self, k: Position) -> Extent {
         // Find the farthest end of the next extents
-        let (_,  q0) = self.a.tau(k);
-        let (_,  q1) = self.b.tau(k);
-        let max_q01  = max(q0, q1);
+        let (_, q0) = self.a.tau(k);
+        let (_, q1) = self.b.tau(k);
+        let max_q01 = max(q0, q1);
 
         // This line does not match the paper
         if max_q01 == POSITIVE_INFINITY { return END_EXTENT }
@@ -328,6 +330,27 @@ impl<A, B> Algebra for BothOf<A, B>
     }
 }
 
+/// Creates extents that an extent from either list would be a
+/// subextent of.
+///
+/// # Note
+///
+/// `OneOf::tau` and `OneOf::rho` do *not* produce the same
+/// list. As an example:
+///
+/// ```
+/// A: (1,1)
+/// B: (1,2)
+/// ```
+///
+/// The only extent that *starts* in either input list would be
+/// (1,1). There are two extents that *end* in either list: (1,1) and
+/// (1,2). A similar construction exists for
+///
+/// ```
+/// A: (1,2)
+/// B: (2,2)
+/// ```
 #[derive(Debug,Copy,Clone)]
 pub struct OneOf<A, B>
     where A: Algebra,
@@ -442,6 +465,7 @@ impl Arbitrary for RandomExtentList {
     }
 
     fn shrink(&self) -> Box<Iterator<Item=Self>> {
+        // Should avoid shrinking to START_EXTENT
         Box::new(self.0.shrink().map(|v| RandomExtentList(v)))
     }
 }

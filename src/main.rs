@@ -5,6 +5,8 @@ pub type Position = u64;
 const EPSILON: Position = 1;
 const NEGATIVE_INFINITY: Position = u64::MIN;
 const POSITIVE_INFINITY: Position = u64::MAX;
+// TODO: investigate using saturating_{add,sub}, or maybe just our own
+// method tuned for incrementing/decrementing by epsilon
 
 pub type Extent = (Position, Position);
 const START_EXTENT: Extent = (NEGATIVE_INFINITY, NEGATIVE_INFINITY);
@@ -420,8 +422,12 @@ impl<A, B> Algebra for FollowedBy<A, B>
     fn tau(&self, k: Position) -> Extent {
         // Find the end of next extent after the point
         let (_,  q0) = self.a.tau(k);
+
+        if q0 == POSITIVE_INFINITY { return END_EXTENT }
+
         // Find the extent after the end
         let (p1, q1) = self.b.tau(q0 + EPSILON);
+
         // Look backwards for the extent that ends before the start
         let (p2, _)  = self.a.tau_prime(p1 - EPSILON);
 
@@ -430,8 +436,13 @@ impl<A, B> Algebra for FollowedBy<A, B>
 
     // TODO: test
     fn rho(&self, k: Position) -> Extent {
-        let (p, _) = self.tau_prime(k - EPSILON);
-        self.tau(p + EPSILON)
+        // This if does not match the paper
+        if k == NEGATIVE_INFINITY {
+            self.tau(k)
+        } else {
+            let (p, _) = self.tau_prime(k - EPSILON);
+            self.tau(p + EPSILON)
+        }
     }
 }
 
@@ -704,4 +715,12 @@ fn both_of_lists_do_not_have_extents_starting_after_point() {
     let b = &[(3,4)][..];
     let c = BothOf { a: a, b: b };
     assert_eq!(c.tau(5), END_EXTENT);
+}
+
+#[test]
+fn followed_by_initial_rho_doesnt_crash() {
+    let a = &[][..];
+    let b = &[][..];
+    let c = FollowedBy { a: a, b: b };
+    assert_eq!(c.rho(NEGATIVE_INFINITY), END_EXTENT);
 }

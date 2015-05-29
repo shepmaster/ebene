@@ -303,9 +303,28 @@ impl<A, B> Algebra for BothOf<A, B>
     }
 
     // TODO: test
+    fn tau_prime(&self, k: Position) -> Extent {
+        let (p0, _) = self.a.tau_prime(k);
+        let (p1, _) = self.b.tau_prime(k);
+        let min_p01 = min(p0, p1);
+
+        if min_p01 == NEGATIVE_INFINITY { return START_EXTENT }
+
+        let (p2, q2) = self.a.tau(min_p01);
+        let (p3, q3) = self.b.tau(min_p01);
+
+        (min(p2, p3), max(q2, q3))
+    }
+
+    // TODO: test
     fn rho(&self, k: Position) -> Extent {
-        let (p, _) = self.tau_prime(k - EPSILON);
-        self.tau(p + EPSILON)
+        // This if does not match the paper
+        if k == NEGATIVE_INFINITY {
+            self.tau(k)
+        } else {
+            let (p, _) = self.tau_prime(k - EPSILON);
+            self.tau(p + EPSILON)
+        }
     }
 }
 
@@ -621,6 +640,30 @@ fn containing_haystack_ends_too_early() {
     let b = &[(2,5)][..];
     let c = Containing { a: a, b: b };
     assert_eq!(c.tau(1), END_EXTENT);
+}
+
+#[test]
+fn both_of_all_tau_matches_all_rho() {
+    fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
+        let c = BothOf { a: a, b: b };
+
+        // TODO: add a reference or equivalent, instead of clone
+        let a: Vec<_> = c.clone().iter_tau().collect();
+        let b: Vec<_> = c.iter_rho().collect();
+
+        // TODO: add a iterator comparison, not vec
+        a == b
+    }
+
+    quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+}
+
+#[test]
+fn both_of_initial_rho_doesnt_crash() {
+    let a = &[][..];
+    let b = &[][..];
+    let c = BothOf { a: a, b: b };
+    assert_eq!(c.rho(NEGATIVE_INFINITY), END_EXTENT);
 }
 
 #[test]

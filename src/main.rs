@@ -425,7 +425,7 @@ impl Arbitrary for RandomExtentList {
         let mut extents: Vec<Extent> = Arbitrary::arbitrary(g);
 
         // Reorder the extents
-        let mut last_start = NEGATIVE_INFINITY;
+        let mut last_start = NEGATIVE_INFINITY + EPSILON;
         for extent in &mut extents {
             // Make sure the end comes after the start
             if extent.0 > extent.1 {

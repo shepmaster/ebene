@@ -571,8 +571,22 @@ impl Arbitrary for RandomExtentList {
     }
 
     fn shrink(&self) -> Box<Iterator<Item=Self>> {
-        // Should avoid shrinking to START_EXTENT
-        Box::new(self.0.shrink().map(|v| RandomExtentList(v)))
+        Box::new(RandomExtentListShrinker(self.0.clone()))
+    }
+}
+
+/// A simplistic shrinking strategy that preserves the ordering
+/// guarantee of the extent list
+struct RandomExtentListShrinker(Vec<Extent>);
+
+impl Iterator for RandomExtentListShrinker {
+    type Item = RandomExtentList;
+
+    fn next(&mut self) -> Option<RandomExtentList> {
+        match self.0.pop() {
+            Some(..) => Some(RandomExtentList(self.0.clone())),
+            None => None,
+        }
     }
 }
 

@@ -660,11 +660,7 @@ fn extent_list_rho_returns_end_marker_if_no_match() {
 fn contained_in_all_tau_matches_all_rho() {
     fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
         let c = ContainedIn { a: &a, b: &b };
-
-        let a = c.iter_tau();
-        let b = c.iter_rho();
-
-        iter_eq(a, b)
+        iter_eq(c.iter_tau(), c.iter_rho())
     }
 
     quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
@@ -725,11 +721,7 @@ fn contained_in_needle_ends_too_late() {
 fn containing_all_tau_matches_all_rho() {
     fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
         let c = Containing { a: &a, b: &b };
-
-        let a = c.iter_tau();
-        let b = c.iter_rho();
-
-        iter_eq(a, b)
+        iter_eq(c.iter_tau(), c.iter_rho())
     }
 
     quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
@@ -787,11 +779,7 @@ fn containing_haystack_ends_too_early() {
 fn both_of_all_tau_matches_all_rho() {
     fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
         let c = BothOf { a: &a, b: &b };
-
-        let a = c.iter_tau();
-        let b = c.iter_rho();
-
-        iter_eq(a, b)
+        iter_eq(c.iter_tau(), c.iter_rho())
     }
 
     quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
@@ -825,11 +813,7 @@ fn both_of_lists_do_not_have_extents_starting_after_point() {
 fn followed_by_all_tau_matches_all_rho() {
     fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
         let c = FollowedBy { a: &a, b: &b };
-
-        let a = c.iter_tau();
-        let b = c.iter_rho();
-
-        iter_eq(a, b)
+        iter_eq(c.iter_tau(), c.iter_rho())
     }
 
     quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);

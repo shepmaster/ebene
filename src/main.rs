@@ -118,9 +118,18 @@ impl<T> Iterator for IterRho<T>
     }
 }
 
+macro_rules! check_forwards {
+    ($k:expr) => { if $k == POSITIVE_INFINITY { return END_EXTENT } };
+}
+
+macro_rules! check_backwards {
+    ($k:expr) => { if $k == NEGATIVE_INFINITY { return START_EXTENT } };
+}
+
 // TODO: Investigate `get_unchecked` as we know the idx is valid.
 impl<'a> Algebra for &'a [Extent] {
     fn tau(&self, k: Position) -> Extent {
+        check_forwards!(k);
         match self.binary_search_by(|ex| ex.0.cmp(&k)) {
             Ok(idx) => self[idx],
             Err(idx) if idx != self.len() => self[idx],
@@ -130,6 +139,7 @@ impl<'a> Algebra for &'a [Extent] {
 
     // TODO: test
     fn tau_prime(&self, k: Position) -> Extent {
+        check_backwards!(k);
         match self.binary_search_by(|ex| ex.1.cmp(&k)) {
             Ok(idx) => self[idx],
             Err(idx) if idx != 0 => self[idx - 1],
@@ -138,6 +148,7 @@ impl<'a> Algebra for &'a [Extent] {
     }
 
     fn rho(&self, k: Position) -> Extent {
+        check_forwards!(k);
         match self.binary_search_by(|ex| ex.1.cmp(&k)) {
             Ok(idx) => self[idx],
             Err(idx) if idx != self.len() => self[idx],
@@ -147,6 +158,7 @@ impl<'a> Algebra for &'a [Extent] {
 
     // TODO: test
     fn rho_prime(&self, k: Position) -> Extent {
+        check_backwards!(k);
         match self.binary_search_by(|ex| ex.0.cmp(&k)) {
             Ok(idx) => self[idx],
             Err(idx) if idx != 0 => self[idx - 1],
@@ -177,6 +189,8 @@ impl<A, B> Algebra for ContainedIn<A, B>
         let mut k = k;
 
         loop {
+            check_forwards!(k);
+
             let (p0, q0) = self.a.tau(k);
             let (p1, _)  = self.b.rho(q0);
 
@@ -191,6 +205,8 @@ impl<A, B> Algebra for ContainedIn<A, B>
 
     // TODO: test
     fn rho(&self, k: Position) -> Extent {
+        check_forwards!(k);
+
         let (p, _) = self.a.rho(k);
         self.tau(p)
     }
@@ -214,6 +230,7 @@ impl<A, B> Algebra for Containing<A, B>
           B: Algebra,
 {
     fn tau(&self, k: Position) -> Extent {
+        check_forwards!(k);
         let (_, q) = self.a.tau(k);
         self.rho(q)
     }
@@ -222,6 +239,8 @@ impl<A, B> Algebra for Containing<A, B>
         let mut k = k;
 
         loop {
+            check_forwards!(k);
+
             let (p0, q0) = self.a.rho(k);
             let (_,  q1) = self.b.tau(p0);
 
@@ -250,6 +269,7 @@ impl<A, B> Algebra for NotContainedIn<A, B>
 {
     // TODO: test
     fn tau(&self, k: Position) -> Extent {
+        check_forwards!(k);
         let (p0, q0) = self.a.tau(k);
         let (p1, q1) = self.b.rho(q0);
 
@@ -263,6 +283,8 @@ impl<A, B> Algebra for NotContainedIn<A, B>
 
     // TODO: test
     fn rho(&self, k: Position) -> Extent {
+        check_forwards!(k);
+
         let (p, _) = self.a.rho(k);
         self.tau(p)
     }
@@ -283,12 +305,16 @@ impl<A, B> Algebra for NotContaining<A, B>
 {
     // TODO: test
     fn tau(&self, k: Position) -> Extent {
+        check_forwards!(k);
+
         let (_, q) = self.a.tau(k);
         self.rho(q)
     }
 
     // TODO: test
     fn rho(&self, k: Position) -> Extent {
+        check_forwards!(k);
+
         let (p0, q0) = self.a.rho(k);
         let (p1, q1) = self.b.tau(p0);
 
@@ -318,13 +344,15 @@ impl<A, B> Algebra for BothOf<A, B>
 {
     // TODO: test
     fn tau(&self, k: Position) -> Extent {
+        check_forwards!(k);
+
         // Find the farthest end of the next extents
         let (_, q0) = self.a.tau(k);
         let (_, q1) = self.b.tau(k);
         let max_q01 = max(q0, q1);
 
         // This line does not match the paper
-        if max_q01 == POSITIVE_INFINITY { return END_EXTENT }
+        check_forwards!(max_q01);
 
         // Find the extents prior to that point
         let (p2, q2) = self.a.tau_prime(max_q01);
@@ -336,11 +364,13 @@ impl<A, B> Algebra for BothOf<A, B>
 
     // TODO: test
     fn tau_prime(&self, k: Position) -> Extent {
+        check_backwards!(k);
+
         let (p0, _) = self.a.tau_prime(k);
         let (p1, _) = self.b.tau_prime(k);
         let min_p01 = min(p0, p1);
 
-        if min_p01 == NEGATIVE_INFINITY { return START_EXTENT }
+        check_backwards!(min_p01);
 
         let (p2, q2) = self.a.tau(min_p01);
         let (p3, q3) = self.b.tau(min_p01);
@@ -350,6 +380,8 @@ impl<A, B> Algebra for BothOf<A, B>
 
     // TODO: test
     fn rho(&self, k: Position) -> Extent {
+        check_forwards!(k);
+
         let (p, _) = self.tau_prime(k.decrement());
         self.tau(p.increment())
     }
@@ -391,6 +423,8 @@ impl<A, B> Algebra for OneOf<A, B>
 {
     // TODO: test
     fn tau(&self, k: Position) -> Extent {
+        check_forwards!(k);
+
         // Find the extents after the point
         let (p0, q0) = self.a.tau(k);
         let (p1, q1) = self.b.tau(k);
@@ -410,6 +444,8 @@ impl<A, B> Algebra for OneOf<A, B>
 
     // TODO: test
     fn rho(&self, k: Position) -> Extent {
+        check_forwards!(k);
+
         // Find the extents ending after the point
         let (p0, q0) = self.a.rho(k);
         let (p1, q1) = self.b.rho(k);

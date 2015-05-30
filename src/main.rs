@@ -488,22 +488,37 @@ impl<A, B> Algebra for FollowedBy<A, B>
 {
     // TODO: test
     fn tau(&self, k: Position) -> Extent {
-        // Find the end of next extent after the point
-        let (_,  q0) = self.a.tau(k);
+        check_forwards!(k);
 
-        if q0 == POSITIVE_INFINITY { return END_EXTENT }
+        // Find the first extent in A at or after the point
+        let (_, q0) = self.a.tau(k);
 
-        // Find the extent after the end
-        let (p1, q1) = self.b.tau(q0 + EPSILON);
+        // Find the first extent in B at or after the first extent
+        let (p1, q1) = self.b.tau(q0.increment());
+        check_forwards!(q1);
 
-        // Look backwards for the extent that ends before the start
-        let (p2, _)  = self.a.tau_prime(p1 - EPSILON);
-
+        // Find the closest extent in A that is before the extent from B
+        let (p2, _) = self.a.tau_prime(p1.decrement());
         (p2, q1)
     }
 
     // TODO: test
+    fn tau_prime(&self, k: Position) -> Extent {
+        check_backwards!(k);
+
+        let (p0, _) = self.b.tau_prime(k);
+
+        let (p1, q1) = self.a.tau_prime(p0.decrement());
+        check_backwards!(q1);
+
+        let (_, q2) = self.b.tau(q1.increment());
+        (p1, q2)
+    }
+
+    // TODO: test
     fn rho(&self, k: Position) -> Extent {
+        check_forwards!(k);
+
         let (p, _) = self.tau_prime(k.decrement());
         self.tau(p.increment())
     }
@@ -792,9 +807,39 @@ fn both_of_lists_do_not_have_extents_starting_after_point() {
 }
 
 #[test]
+fn followed_by_all_tau_matches_all_rho() {
+    fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
+        let c = FollowedBy { a: &a, b: &b };
+
+        let a = c.iter_tau();
+        let b = c.iter_rho();
+
+        iter_eq(a, b)
+    }
+
+    quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+}
+
+#[test]
 fn followed_by_initial_rho_doesnt_crash() {
     let a = &[][..];
     let b = &[][..];
     let c = FollowedBy { a: a, b: b };
     assert_eq!(c.rho(NEGATIVE_INFINITY), END_EXTENT);
+}
+
+#[test]
+fn followed_by_tau_prime_only_result() {
+    let a = &[(1, 2)][..];
+    let b = &[(3, 4)][..];
+    let c = FollowedBy { a: a, b: b };
+    assert_eq!(c.tau_prime(4), (1,4));
+}
+
+#[test]
+fn followed_by_tau_prime_after_last_result() {
+    let a = &[(1, 2)][..];
+    let b = &[(3, 4)][..];
+    let c = FollowedBy { a: a, b: b };
+    assert_eq!(c.tau_prime(3), START_EXTENT);
 }

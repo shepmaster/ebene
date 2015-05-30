@@ -5,8 +5,34 @@ pub type Position = u64;
 const EPSILON: Position = 1;
 const NEGATIVE_INFINITY: Position = u64::MIN;
 const POSITIVE_INFINITY: Position = u64::MAX;
-// TODO: investigate using saturating_{add,sub}, or maybe just our own
-// method tuned for incrementing/decrementing by epsilon
+
+/// Infinite values stay infinite when you add non-infinite values to
+/// them.
+///
+/// NEGATIVE_INFINITY +/- EPSILON -> NEGATIVE_INFINITY
+/// POSITIVE_INFINITY +/- EPSILON -> POSITIVE_INFINITY
+trait Epsilon {
+    fn increment(self) -> Self;
+    fn decrement(self) -> Self;
+}
+
+impl Epsilon for Position {
+    fn increment(self) -> Self {
+        match self {
+            x if x == NEGATIVE_INFINITY => self,
+            x if x == POSITIVE_INFINITY => self,
+            _ => self + 1,
+        }
+    }
+
+    fn decrement(self) -> Self {
+        match self {
+            x if x == NEGATIVE_INFINITY => self,
+            x if x == POSITIVE_INFINITY => self,
+            _ => self - 1,
+        }
+    }
+}
 
 pub type Extent = (Position, Position);
 const START_EXTENT: Extent = (NEGATIVE_INFINITY, NEGATIVE_INFINITY);
@@ -66,7 +92,8 @@ impl<T> Iterator for IterTau<T>
         let (p, q) = self.list.tau(self.k);
         if p == POSITIVE_INFINITY { return None }
 
-        self.k = p + EPSILON;
+        debug_assert!(self.k < p.increment());
+        self.k = p.increment();
         Some((p, q))
     }
 }
@@ -85,7 +112,8 @@ impl<T> Iterator for IterRho<T>
         let (p, q) = self.list.rho(self.k);
         if q == POSITIVE_INFINITY { return None }
 
-        self.k = q + EPSILON;
+        debug_assert!(self.k < q.increment());
+        self.k = q.increment();
         Some((p, q))
     }
 }
@@ -229,7 +257,7 @@ impl<A, B> Algebra for NotContainedIn<A, B>
             (p0, q0)
         } else {
             // TODO: prevent recursion?
-            self.rho(q1 + EPSILON)
+            self.rho(q1.increment())
         }
     }
 
@@ -268,7 +296,7 @@ impl<A, B> Algebra for NotContaining<A, B>
             (p0, q0)
         } else {
             // TODO: prevent recursion?
-            self.tau(p1 + EPSILON)
+            self.tau(p1.increment())
         }
     }
 }
@@ -322,13 +350,8 @@ impl<A, B> Algebra for BothOf<A, B>
 
     // TODO: test
     fn rho(&self, k: Position) -> Extent {
-        // This if does not match the paper
-        if k == NEGATIVE_INFINITY {
-            self.tau(k)
-        } else {
-            let (p, _) = self.tau_prime(k - EPSILON);
-            self.tau(p + EPSILON)
-        }
+        let (p, _) = self.tau_prime(k.decrement());
+        self.tau(p.increment())
     }
 }
 
@@ -436,13 +459,8 @@ impl<A, B> Algebra for FollowedBy<A, B>
 
     // TODO: test
     fn rho(&self, k: Position) -> Extent {
-        // This if does not match the paper
-        if k == NEGATIVE_INFINITY {
-            self.tau(k)
-        } else {
-            let (p, _) = self.tau_prime(k - EPSILON);
-            self.tau(p + EPSILON)
-        }
+        let (p, _) = self.tau_prime(k.decrement());
+        self.tau(p.increment())
     }
 }
 
@@ -459,6 +477,8 @@ impl Arbitrary for RandomExtentList {
         let mut extents: Vec<Extent> = Arbitrary::arbitrary(g);
 
         // Reorder the extents
+        // Start at the first valid position. We can't use the sticky
+        // infinity method here.
         let mut last_start = NEGATIVE_INFINITY + EPSILON;
         for extent in &mut extents {
             // Make sure the end comes after the start
@@ -469,7 +489,7 @@ impl Arbitrary for RandomExtentList {
             extent.0 += last_start;
             extent.1 += last_start;
             // Don't let the next extent overlap with us
-            last_start = extent.1 + EPSILON;
+            last_start = extent.1.increment();
         }
 
         RandomExtentList(extents)

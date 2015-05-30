@@ -586,6 +586,12 @@ impl Algebra for RandomExtentList {
 fn main() {
 }
 
+fn all_extents<A>(a: A) -> Vec<Extent>
+    where A: Algebra
+{
+    a.iter_tau().collect()
+}
+
 fn iter_eq<A, B, T, U>(a: A, b: B) -> bool
     where A: IntoIterator<Item=T>,
           B: IntoIterator<Item=U>,
@@ -667,6 +673,19 @@ fn contained_in_all_tau_matches_all_rho() {
 }
 
 #[test]
+fn contained_in_any_k() {
+    fn prop(a: RandomExtentList, b: RandomExtentList, k: Position) -> bool {
+        let c = ContainedIn { a: &a, b: &b };
+        let from_zero = all_extents(c);
+
+        c.tau(k) == from_zero.tau(k) &&
+            c.rho(k) == from_zero.rho(k)
+    }
+
+    quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
+}
+
+#[test]
 fn contained_in_needle_is_fully_within_haystack() {
     let a = &[(2,3)][..];
     let b = &[(1,4)][..];
@@ -728,6 +747,19 @@ fn containing_all_tau_matches_all_rho() {
 }
 
 #[test]
+fn containing_any_k() {
+    fn prop(a: RandomExtentList, b: RandomExtentList, k: Position) -> bool {
+        let c = Containing { a: &a, b: &b };
+        let from_zero = all_extents(c);
+
+        c.tau(k) == from_zero.tau(k) &&
+            c.rho(k) == from_zero.rho(k)
+    }
+
+    quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
+}
+
+#[test]
 fn containing_haystack_fully_around_needle() {
     let a = &[(1,4)][..];
     let b = &[(2,3)][..];
@@ -786,6 +818,19 @@ fn both_of_all_tau_matches_all_rho() {
 }
 
 #[test]
+fn both_of_any_k() {
+    fn prop(a: RandomExtentList, b: RandomExtentList, k: Position) -> bool {
+        let c = BothOf { a: &a, b: &b };
+        let from_zero = all_extents(c);
+
+        c.tau(k) == from_zero.tau(k) &&
+            c.rho(k) == from_zero.rho(k)
+    }
+
+    quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
+}
+
+#[test]
 fn both_of_initial_rho_doesnt_crash() {
     let a = &[][..];
     let b = &[][..];
@@ -817,6 +862,19 @@ fn followed_by_all_tau_matches_all_rho() {
     }
 
     quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+}
+
+#[test]
+fn followed_by_any_k() {
+    fn prop(a: RandomExtentList, b: RandomExtentList, k: Position) -> bool {
+        let c = FollowedBy { a: &a, b: &b };
+        let from_zero = all_extents(c);
+
+        c.tau(k) == from_zero.tau(k) &&
+            c.rho(k) == from_zero.rho(k)
+    }
+
+    quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
 }
 
 #[test]

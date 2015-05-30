@@ -78,6 +78,15 @@ pub trait Algebra {
     }
 }
 
+impl<'a, A: ?Sized> Algebra for &'a A
+    where A: Algebra
+{
+    fn tau(&self, k: Position)       -> Extent { (*self).tau(k) }
+    fn tau_prime(&self, k: Position) -> Extent { (*self).tau_prime(k) }
+    fn rho(&self, k: Position)       -> Extent { (*self).rho(k) }
+    fn rho_prime(&self, k: Position) -> Extent { (*self).rho_prime(k) }
+}
+
 #[derive(Debug,Copy,Clone)]
 pub struct IterTau<T> {
     list: T,
@@ -127,7 +136,7 @@ macro_rules! check_backwards {
 }
 
 // TODO: Investigate `get_unchecked` as we know the idx is valid.
-impl<'a> Algebra for &'a [Extent] {
+impl Algebra for [Extent] {
     fn tau(&self, k: Position) -> Extent {
         check_forwards!(k);
         match self.binary_search_by(|ex| ex.0.cmp(&k)) {
@@ -547,15 +556,30 @@ impl Algebra for RandomExtentList {
 fn main() {
 }
 
+fn iter_eq<A, B, T, U>(a: A, b: B) -> bool
+    where A: IntoIterator<Item=T>,
+          B: IntoIterator<Item=U>,
+          T: PartialEq<U>,
+{
+    let mut a = a.into_iter();
+    let mut b = b.into_iter();
+
+    loop {
+        match (a.next(), b.next()) {
+            (Some(ref a), Some(ref b)) if a == b => continue,
+            (None, None) => return true,
+            _ => return false,
+        }
+    }
+}
+
 #[test]
 fn extent_list_all_tau_matches_all_rho() {
     fn prop(extents: RandomExtentList) -> bool {
-        // TODO: add a reference or equivalent, instead of clone
-        let a: Vec<_> = extents.clone().iter_tau().collect();
-        let b: Vec<_> = extents.iter_rho().collect();
+        let a = (&extents).iter_tau();
+        let b = (&extents).iter_rho();
 
-        // TODO: add a iterator comparison, not vec
-        a == b
+        iter_eq(a, b)
     }
 
     quickcheck(prop as fn(RandomExtentList) -> bool);
@@ -605,14 +629,12 @@ fn extent_list_rho_returns_end_marker_if_no_match() {
 #[test]
 fn contained_in_all_tau_matches_all_rho() {
     fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
-        let c = ContainedIn { a: a, b: b };
+        let c = ContainedIn { a: &a, b: &b };
 
-        // TODO: add a reference or equivalent, instead of clone
-        let a: Vec<_> = c.clone().iter_tau().collect();
-        let b: Vec<_> = c.iter_rho().collect();
+        let a = c.iter_tau();
+        let b = c.iter_rho();
 
-        // TODO: add a iterator comparison, not vec
-        a == b
+        iter_eq(a, b)
     }
 
     quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
@@ -672,14 +694,12 @@ fn contained_in_needle_ends_too_late() {
 #[test]
 fn containing_all_tau_matches_all_rho() {
     fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
-        let c = Containing { a: a, b: b };
+        let c = Containing { a: &a, b: &b };
 
-        // TODO: add a reference or equivalent, instead of clone
-        let a: Vec<_> = c.clone().iter_tau().collect();
-        let b: Vec<_> = c.iter_rho().collect();
+        let a = c.iter_tau();
+        let b = c.iter_rho();
 
-        // TODO: add a iterator comparison, not vec
-        a == b
+        iter_eq(a, b)
     }
 
     quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
@@ -736,14 +756,12 @@ fn containing_haystack_ends_too_early() {
 #[test]
 fn both_of_all_tau_matches_all_rho() {
     fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
-        let c = BothOf { a: a, b: b };
+        let c = BothOf { a: &a, b: &b };
 
-        // TODO: add a reference or equivalent, instead of clone
-        let a: Vec<_> = c.clone().iter_tau().collect();
-        let b: Vec<_> = c.iter_rho().collect();
+        let a = c.iter_tau();
+        let b = c.iter_rho();
 
-        // TODO: add a iterator comparison, not vec
-        a == b
+        iter_eq(a, b)
     }
 
     quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);

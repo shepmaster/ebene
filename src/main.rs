@@ -40,6 +40,21 @@ const END_EXTENT: Extent = (POSITIVE_INFINITY, POSITIVE_INFINITY);
 
 /// The basic query algebra from the [Clarke *et al.* paper][paper]
 ///
+/// # tau-prime and rho-prime
+///
+/// The paper does not give a concrete example of how to construct the
+/// `*_prime` functions, simply stating
+///
+/// > The access functions τ′ and ρ′ are the converses of τ and ρ.
+///
+/// Through trial and error, I've determined that there are 4 concrete
+/// steps to transform between prime and non-prime implementations:
+///
+/// 1. Swap usages of {tau,rho} with {tau-prime,rho-prime}
+/// 2. Swap the sign of epsilon
+/// 3. Swap the usages of p and q
+/// 4. Swap the usages of A and B
+///
 /// [paper]: http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.330.8436&rank=1
 #[allow(unused_variables)]
 pub trait Algebra {
@@ -375,14 +390,14 @@ impl<A, B> Algebra for BothOf<A, B>
     fn tau_prime(&self, k: Position) -> Extent {
         check_backwards!(k);
 
-        let (p0, _) = self.a.tau_prime(k);
-        let (p1, _) = self.b.tau_prime(k);
+        let (p0, _) = self.b.tau_prime(k);
+        let (p1, _) = self.a.tau_prime(k);
         let min_p01 = min(p0, p1);
 
         check_backwards!(min_p01);
 
-        let (p2, q2) = self.a.tau(min_p01);
-        let (p3, q3) = self.b.tau(min_p01);
+        let (p2, q2) = self.b.tau(min_p01);
+        let (p3, q3) = self.a.tau(min_p01);
 
         (min(p2, p3), max(q2, q3))
     }

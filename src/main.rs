@@ -335,6 +335,12 @@ impl<A, B> Algebra for Containing<A, B>
         self.rho(q)
     }
 
+    fn tau_prime(&self, k: Position) -> Extent {
+        check_backwards!(k);
+        let (p, _) = self.a.tau_prime(k);
+        self.rho_prime(p)
+    }
+
     fn rho(&self, k: Position) -> Extent {
         let mut k = k;
 
@@ -349,6 +355,24 @@ impl<A, B> Algebra for Containing<A, B>
             } else {
                 // iteration instead of recursion
                 k = q1;
+            }
+        }
+    }
+
+    fn rho_prime(&self, k: Position) -> Extent {
+        let mut k = k;
+
+        loop {
+            check_backwards!(k);
+
+            let (p0, q0) = self.a.rho_prime(k);
+            let (p1, _)  = self.b.tau_prime(q0);
+
+            if p1 >= p0 {
+                return (p0, q0);
+            } else {
+                // iteration instead of recursion
+                k = p1;
             }
         }
     }
@@ -846,14 +870,21 @@ fn contained_in_needle_ends_too_late() {
     assert_eq!(c.tau(1), END_EXTENT);
 }
 
-// Containing::tau is implemented in terms of rho, no need for
-// separate tests
-
 #[test]
 fn containing_all_tau_matches_all_rho() {
     fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
         let c = Containing { a: &a, b: &b };
         iter_eq(c.iter_tau(), c.iter_rho())
+    }
+
+    quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+}
+
+#[test]
+fn containing_all_tau_prime_matches_all_rho_prime() {
+    fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
+        let c = Containing { a: &a, b: &b };
+        iter_eq(c.iter_tau_prime(), c.iter_rho_prime())
     }
 
     quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
@@ -866,7 +897,9 @@ fn containing_any_k() {
         let from_zero = all_extents(c);
 
         c.tau(k) == from_zero.tau(k) &&
-            c.rho(k) == from_zero.rho(k)
+            c.rho(k) == from_zero.rho(k) &&
+            c.tau_prime(k) == from_zero.tau_prime(k) &&
+            c.rho_prime(k) == from_zero.rho_prime(k)
     }
 
     quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);

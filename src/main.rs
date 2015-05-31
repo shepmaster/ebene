@@ -279,12 +279,36 @@ impl<A, B> Algebra for ContainedIn<A, B>
         }
     }
 
-    // TODO: test
+    fn tau_prime(&self, k: Position) -> Extent {
+        let mut k = k;
+
+        loop {
+            check_backwards!(k);
+
+            let (p0, q0) = self.a.tau_prime(k);
+            let (_,  q1) = self.b.rho_prime(p0);
+
+            if q1 >= q0 {
+                return (p0, q0);
+            } else {
+                // iteration instead of recursion
+                k = q1;
+            }
+        }
+    }
+
     fn rho(&self, k: Position) -> Extent {
         check_forwards!(k);
 
         let (p, _) = self.a.rho(k);
         self.tau(p)
+    }
+
+    fn rho_prime(&self, k: Position) -> Extent {
+        check_backwards!(k);
+
+        let (_, q) = self.a.rho_prime(k);
+        self.tau_prime(q)
     }
 }
 
@@ -739,14 +763,21 @@ fn extent_list_rho_returns_end_marker_if_no_match() {
     assert_eq!(a.rho(4), END_EXTENT);
 }
 
-// Containing::rho is implemented in terms of tau, we should rewrite
-// tests to leverage this
-
 #[test]
 fn contained_in_all_tau_matches_all_rho() {
     fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
         let c = ContainedIn { a: &a, b: &b };
         iter_eq(c.iter_tau(), c.iter_rho())
+    }
+
+    quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+}
+
+#[test]
+fn contained_in_all_tau_prime_matches_all_rho_prime() {
+    fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
+        let c = ContainedIn { a: &a, b: &b };
+        iter_eq(c.iter_tau_prime(), c.iter_rho_prime())
     }
 
     quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
@@ -759,7 +790,9 @@ fn contained_in_any_k() {
         let from_zero = all_extents(c);
 
         c.tau(k) == from_zero.tau(k) &&
-            c.rho(k) == from_zero.rho(k)
+            c.rho(k) == from_zero.rho(k) &&
+            c.tau_prime(k) == from_zero.tau_prime(k) &&
+            c.rho_prime(k) == from_zero.rho_prime(k)
     }
 
     quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);

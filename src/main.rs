@@ -747,6 +747,19 @@ fn iter_eq<A, B, T, U>(a: A, b: B) -> bool
     }
 }
 
+fn any_k<A>(operator: A, k: Position) -> bool
+    where A: Algebra + Copy
+{
+    let from_zero = all_extents(operator);
+
+    let via_tau = operator.tau(k) == from_zero.tau(k);
+    let via_rho = operator.rho(k) == from_zero.rho(k);
+    let via_tau_prime = operator.tau_prime(k) == from_zero.tau_prime(k);
+    let via_rho_prime = operator.rho_prime(k) == from_zero.rho_prime(k);
+
+    via_tau && via_rho && via_tau_prime && via_rho_prime
+}
+
 #[test]
 fn extent_list_all_tau_matches_all_rho() {
     fn prop(extents: RandomExtentList) -> bool {
@@ -820,13 +833,7 @@ fn contained_in_all_tau_prime_matches_all_rho_prime() {
 #[test]
 fn contained_in_any_k() {
     fn prop(a: RandomExtentList, b: RandomExtentList, k: Position) -> bool {
-        let c = ContainedIn { a: &a, b: &b };
-        let from_zero = all_extents(c);
-
-        c.tau(k) == from_zero.tau(k) &&
-            c.rho(k) == from_zero.rho(k) &&
-            c.tau_prime(k) == from_zero.tau_prime(k) &&
-            c.rho_prime(k) == from_zero.rho_prime(k)
+        any_k(ContainedIn { a: &a, b: &b }, k)
     }
 
     quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
@@ -903,13 +910,7 @@ fn containing_all_tau_prime_matches_all_rho_prime() {
 #[test]
 fn containing_any_k() {
     fn prop(a: RandomExtentList, b: RandomExtentList, k: Position) -> bool {
-        let c = Containing { a: &a, b: &b };
-        let from_zero = all_extents(c);
-
-        c.tau(k) == from_zero.tau(k) &&
-            c.rho(k) == from_zero.rho(k) &&
-            c.tau_prime(k) == from_zero.tau_prime(k) &&
-            c.rho_prime(k) == from_zero.rho_prime(k)
+        any_k(Containing { a: &a, b: &b }, k)
     }
 
     quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
@@ -986,13 +987,7 @@ fn both_of_all_tau_prime_matches_all_rho_prime() {
 #[test]
 fn both_of_any_k() {
     fn prop(a: RandomExtentList, b: RandomExtentList, k: Position) -> bool {
-        let c = BothOf { a: &a, b: &b };
-        let from_zero = all_extents(c);
-
-        c.tau(k) == from_zero.tau(k) &&
-            c.rho(k) == from_zero.rho(k) &&
-            c.tau_prime(k) == from_zero.tau_prime(k) &&
-            c.rho_prime(k) == from_zero.rho_prime(k)
+        any_k(BothOf { a: &a, b: &b }, k)
     }
 
     quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
@@ -1126,13 +1121,7 @@ fn followed_by_all_tau_prime_matches_all_rho_prime() {
 #[test]
 fn followed_by_any_k() {
     fn prop(a: RandomExtentList, b: RandomExtentList, k: Position) -> bool {
-        let c = FollowedBy { a: &a, b: &b };
-        let from_zero = all_extents(c);
-
-        c.tau(k) == from_zero.tau(k) &&
-            c.rho(k) == from_zero.rho(k) &&
-            c.tau_prime(k) == from_zero.tau_prime(k) &&
-            c.rho_prime(k) == from_zero.rho_prime(k)
+        any_k(FollowedBy { a: &a, b: &b }, k)
     }
 
     quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);

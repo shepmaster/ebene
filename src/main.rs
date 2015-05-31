@@ -883,6 +883,87 @@ fn both_of_lists_do_not_have_extents_starting_after_point() {
 }
 
 #[test]
+fn one_of_merges_empty_lists() {
+    let a = &[][..];
+    let b = &[][..];
+    let c = OneOf { a: &a, b: &b };
+
+    assert_eq!(all_extents(c), []);
+}
+
+#[test]
+fn one_of_merges_empty_list_and_nonempty_list() {
+    let a = &[][..];
+    let b = &[(1,2)][..];
+
+    let c = OneOf { a: &a, b: &b };
+    assert_eq!(all_extents(c), [(1,2)]);
+
+    let c = OneOf { a: &b, b: &a };
+    assert_eq!(all_extents(c), [(1,2)]);
+}
+
+#[test]
+fn one_of_merges_nonempty_lists() {
+    let a = &[(1,2)][..];
+    let b = &[(3,4)][..];
+
+    let c = OneOf { a: &a, b: &b };
+    assert_eq!(all_extents(c), [(1,2), (3,4)]);
+
+    let c = OneOf { a: &b, b: &a };
+    assert_eq!(all_extents(c), [(1,2), (3,4)]);
+}
+
+#[test]
+fn one_of_merges_overlapping_nonnested_lists() {
+    let a = &[(1,3)][..];
+    let b = &[(2,4)][..];
+
+    let c = OneOf { a: &a, b: &b };
+    assert_eq!(all_extents(c), [(1,3), (2,4)]);
+
+    let c = OneOf { a: &b, b: &a };
+    assert_eq!(all_extents(c), [(1,3), (2,4)]);
+}
+
+#[test]
+fn one_of_merges_overlapping_nested_lists() {
+    let a = &[(1,4)][..];
+    let b = &[(2,3)][..];
+
+    let c = OneOf { a: &a, b: &b };
+    assert_eq!(all_extents(c), [(2,3)]);
+
+    let c = OneOf { a: &b, b: &a };
+    assert_eq!(all_extents(c), [(2,3)]);
+}
+
+#[test]
+fn one_of_merges_overlapping_lists_nested_at_end() {
+    let a = &[(1,4)][..];
+    let b = &[(2,4)][..];
+
+    let c = OneOf { a: &a, b: &b };
+    assert_eq!(all_extents(c), [(2,4)]);
+
+    let c = OneOf { a: &b, b: &a };
+    assert_eq!(all_extents(c), [(2,4)]);
+}
+
+#[test]
+fn one_of_merges_overlapping_lists_nested_at_start() {
+    let a = &[(1,4)][..];
+    let b = &[(1,3)][..];
+
+    let c = OneOf { a: &a, b: &b };
+    assert_eq!(all_extents(c), [(1,3)]);
+
+    let c = OneOf { a: &b, b: &a };
+    assert_eq!(all_extents(c), [(1,3)]);
+}
+
+#[test]
 fn followed_by_all_tau_matches_all_rho() {
     fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
         let c = FollowedBy { a: &a, b: &b };

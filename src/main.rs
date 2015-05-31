@@ -91,6 +91,18 @@ pub trait Algebra {
     {
         IterRho { list: self, k: NEGATIVE_INFINITY }
     }
+
+    fn iter_tau_prime(self) -> IterTauPrime<Self>
+        where Self: Sized
+    {
+        IterTauPrime { list: self, k: POSITIVE_INFINITY }
+    }
+
+    fn iter_rho_prime(self) -> IterRhoPrime<Self>
+        where Self: Sized
+    {
+        IterRhoPrime { list: self, k: POSITIVE_INFINITY }
+    }
 }
 
 impl<'a, A: ?Sized> Algebra for &'a A
@@ -138,6 +150,46 @@ impl<T> Iterator for IterRho<T>
 
         debug_assert!(self.k < q.increment());
         self.k = q.increment();
+        Some((p, q))
+    }
+}
+
+#[derive(Debug,Copy,Clone)]
+pub struct IterTauPrime<T> {
+    list: T,
+    k: Position,
+}
+
+impl<T> Iterator for IterTauPrime<T>
+    where T: Algebra,
+{
+    type Item = Extent;
+    fn next(&mut self) -> Option<Extent> {
+        let (p, q) = self.list.tau_prime(self.k);
+        if q == NEGATIVE_INFINITY { return None }
+
+        debug_assert!(self.k > q.decrement());
+        self.k = q.decrement();
+        Some((p, q))
+    }
+}
+
+#[derive(Debug,Copy,Clone)]
+pub struct IterRhoPrime<T> {
+    list: T,
+    k: Position,
+}
+
+impl<T> Iterator for IterRhoPrime<T>
+    where T: Algebra,
+{
+    type Item = Extent;
+    fn next(&mut self) -> Option<Extent> {
+        let (p, q) = self.list.rho_prime(self.k);
+        if p == NEGATIVE_INFINITY { return None }
+
+        debug_assert!(self.k > p.decrement());
+        self.k = p.decrement();
         Some((p, q))
     }
 }

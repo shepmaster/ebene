@@ -21,7 +21,7 @@ impl Epsilon for Position {
         match self {
             x if x == NEGATIVE_INFINITY => self,
             x if x == POSITIVE_INFINITY => self,
-            _ => self + 1,
+            _ => self + EPSILON,
         }
     }
 
@@ -29,7 +29,7 @@ impl Epsilon for Position {
         match self {
             x if x == NEGATIVE_INFINITY => self,
             x if x == POSITIVE_INFINITY => self,
-            _ => self - 1,
+            _ => self - EPSILON,
         }
     }
 }
@@ -540,7 +540,23 @@ impl<A, B> Algebra for FollowedBy<A, B>
 }
 
 extern crate quickcheck;
+extern crate rand;
+
 use quickcheck::{quickcheck,Arbitrary};
+use rand::Rng;
+
+fn find_invalid_gc_list_pair(extents: &[Extent]) -> Option<(Extent, Extent)> {
+    extents
+        .windows(2)
+        .map(|window| (window[0], window[1]))
+        .find(|&(a, b)| b.0 <= a.0 || b.1 <= a.1)
+}
+
+fn assert_valid_gc_list(extents: &[Extent]) {
+    if let Some((a, b)) = find_invalid_gc_list_pair(extents) {
+        assert!(false, "{:?} and {:?} are invalid GC-list members", a, b)
+    }
+}
 
 #[derive(Debug,Clone,PartialEq)]
 struct RandomExtentList(Vec<Extent>);
@@ -549,24 +565,22 @@ impl Arbitrary for RandomExtentList {
     fn arbitrary<G>(g: &mut G) -> Self
         where G: quickcheck::Gen
     {
-        let mut extents: Vec<Extent> = Arbitrary::arbitrary(g);
+        let mut extents = vec![];
+        let mut last_extent = (0, 1);
 
-        // Reorder the extents
-        // Start at the first valid position. We can't use the sticky
-        // infinity method here.
-        let mut last_start = NEGATIVE_INFINITY + EPSILON;
-        for extent in &mut extents {
-            // Make sure the end comes after the start
-            if extent.0 > extent.1 {
-                *extent = (extent.1, extent.0);
-            }
-            // make sure that subsequent extents come after previous extents
-            extent.0 += last_start;
-            extent.1 += last_start;
-            // Don't let the next extent overlap with us
-            last_start = extent.1.increment();
+        for _ in 0..g.size() {
+            let start_offset: u64 = Arbitrary::arbitrary(g);
+            let new_start = last_extent.0 + 1 + start_offset;
+            let min_width = last_extent.1 - last_extent.0;
+            let max_width = min_width + g.size() as u64;
+            let width = g.gen_range(min_width, max_width);
+
+            let extent = (new_start, new_start + width);
+            extents.push(extent);
+            last_extent = extent;
         }
 
+        assert_valid_gc_list(&extents);
         RandomExtentList(extents)
     }
 

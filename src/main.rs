@@ -453,6 +453,7 @@ impl<A, B> Algebra for NotContaining<A, B>
 
 /// Creates extents that extents from both lists would be a subextent
 /// of.
+// TODO: functional tests
 #[derive(Debug,Copy,Clone)]
 pub struct BothOf<A, B>
     where A: Algebra,
@@ -466,7 +467,6 @@ impl<A, B> Algebra for BothOf<A, B>
     where A: Algebra,
           B: Algebra,
 {
-    // TODO: test
     fn tau(&self, k: Position) -> Extent {
         check_forwards!(k);
 
@@ -486,28 +486,33 @@ impl<A, B> Algebra for BothOf<A, B>
         (min(p2, p3), max(q2, q3))
     }
 
-    // TODO: test
     fn tau_prime(&self, k: Position) -> Extent {
         check_backwards!(k);
 
-        let (p0, _) = self.b.tau_prime(k);
-        let (p1, _) = self.a.tau_prime(k);
+        let (p0, _) = self.a.tau_prime(k);
+        let (p1, _) = self.b.tau_prime(k);
         let min_p01 = min(p0, p1);
 
         check_backwards!(min_p01);
 
-        let (p2, q2) = self.b.tau(min_p01);
-        let (p3, q3) = self.a.tau(min_p01);
+        let (p2, q2) = self.a.tau(min_p01);
+        let (p3, q3) = self.b.tau(min_p01);
 
         (min(p2, p3), max(q2, q3))
     }
 
-    // TODO: test
     fn rho(&self, k: Position) -> Extent {
         check_forwards!(k);
 
         let (p, _) = self.tau_prime(k.decrement());
         self.tau(p.increment())
+    }
+
+    fn rho_prime(&self, k: Position) -> Extent {
+        check_backwards!(k);
+
+        let (_, q) = self.tau(k.increment());
+        self.tau_prime(q.decrement())
     }
 }
 
@@ -964,13 +969,25 @@ fn both_of_all_tau_matches_all_rho() {
 }
 
 #[test]
+fn both_of_all_tau_prime_matches_all_rho_prime() {
+    fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
+        let c = BothOf { a: &a, b: &b };
+        iter_eq(c.iter_tau_prime(), c.iter_rho_prime())
+    }
+
+    quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+}
+
+#[test]
 fn both_of_any_k() {
     fn prop(a: RandomExtentList, b: RandomExtentList, k: Position) -> bool {
         let c = BothOf { a: &a, b: &b };
         let from_zero = all_extents(c);
 
         c.tau(k) == from_zero.tau(k) &&
-            c.rho(k) == from_zero.rho(k)
+            c.rho(k) == from_zero.rho(k) &&
+            c.tau_prime(k) == from_zero.tau_prime(k) &&
+            c.rho_prime(k) == from_zero.rho_prime(k)
     }
 
     quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);

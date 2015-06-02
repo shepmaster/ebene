@@ -652,6 +652,7 @@ impl<A, B> Algebra for FollowedBy<A, B>
 extern crate quickcheck;
 extern crate rand;
 
+use std::fmt::Debug;
 use quickcheck::{quickcheck,Arbitrary};
 use rand::Rng;
 
@@ -1149,4 +1150,87 @@ fn followed_by_tau_prime_after_last_result() {
     let b = &[(3, 4)][..];
     let c = FollowedBy { a: a, b: b };
     assert_eq!(c.tau_prime(3), START_EXTENT);
+}
+
+trait QuickcheckAlgebra : Algebra + Debug {
+    fn clone_quickcheck_algebra(&self) -> Box<QuickcheckAlgebra + Send>;
+}
+
+impl<A> QuickcheckAlgebra for A
+    where A: Algebra + Debug + Clone + Send + 'static
+{
+    fn clone_quickcheck_algebra(&self) -> Box<QuickcheckAlgebra + Send> {
+        Box::new(self.clone())
+    }
+}
+
+#[derive(Debug)]
+struct ArbitraryAlgebraTree(Box<QuickcheckAlgebra + Send>);
+
+impl Clone for ArbitraryAlgebraTree {
+    fn clone(&self) -> ArbitraryAlgebraTree {
+        ArbitraryAlgebraTree(self.0.clone_quickcheck_algebra())
+    }
+}
+
+impl Algebra for ArbitraryAlgebraTree {
+    fn tau(&self, k: Position)       -> Extent { self.0.tau(k) }
+    fn tau_prime(&self, k: Position) -> Extent { self.0.tau_prime(k) }
+    fn rho(&self, k: Position)       -> Extent { self.0.rho(k) }
+    fn rho_prime(&self, k: Position) -> Extent { self.0.rho_prime(k) }
+}
+
+impl Arbitrary for ArbitraryAlgebraTree {
+    fn arbitrary<G>(g: &mut G) -> Self
+        where G: quickcheck::Gen
+    {
+        let generate_node: bool = g.gen();
+
+        if g.size() == 0 || ! generate_node {
+            let extents: RandomExtentList = Arbitrary::arbitrary(g);
+            ArbitraryAlgebraTree(Box::new(extents))
+        } else {
+            let mut inner_gen = quickcheck::StdGen::new(rand::thread_rng(), g.size() / 2);
+
+            let a: ArbitraryAlgebraTree = Arbitrary::arbitrary(&mut inner_gen);
+            let b: ArbitraryAlgebraTree = Arbitrary::arbitrary(&mut inner_gen);
+
+            let c: Box<QuickcheckAlgebra+Send> = match g.gen_range(0, 4) {
+                0 => Box::new(ContainedIn { a: a, b: b }),
+                1 => Box::new(Containing  { a: a, b: b }),
+                2 => Box::new(BothOf      { a: a, b: b }),
+                3 => Box::new(FollowedBy  { a: a, b: b }),
+                _ => unreachable!(),
+            };
+
+            ArbitraryAlgebraTree(c)
+        }
+    }
+}
+
+#[test]
+fn tree_of_operators_all_tau_matches_all_rho() {
+    fn prop(a: ArbitraryAlgebraTree) -> bool {
+        iter_eq((&a).iter_tau(), (&a).iter_rho())
+    }
+
+    quickcheck(prop as fn(ArbitraryAlgebraTree) -> bool);
+}
+
+#[test]
+fn tree_of_operators_all_tau_prime_matches_all_rho_prime() {
+    fn prop(a: ArbitraryAlgebraTree) -> bool {
+        iter_eq((&a).iter_tau_prime(), (&a).iter_rho_prime())
+    }
+
+    quickcheck(prop as fn(ArbitraryAlgebraTree) -> bool);
+}
+
+#[test]
+fn tree_of_operators_any_k() {
+    fn prop(a: ArbitraryAlgebraTree, k: Position) -> bool {
+        any_k(&a, k)
+    }
+
+    quickcheck(prop as fn(ArbitraryAlgebraTree, Position) -> bool);
 }

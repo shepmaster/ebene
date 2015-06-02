@@ -651,7 +651,16 @@ impl<A, B> Algebra for OneOf<A, B>
     }
 }
 
-// TODO: functional tests
+/// Creates extents that start at an extent from the first argument
+/// and end at an extent from the second argument.
+///
+/// # tau-prime and rho-prime
+///
+/// In addition to the generic rules for constructing the prime
+/// variants, FollowedBy requires that the A and B children be
+/// swapped. This ensures that the ordering constraints are adhered,
+/// otherwise we would find extents from B followed by extents from A.
+///
 #[derive(Debug,Copy,Clone)]
 pub struct FollowedBy<A, B>
     where A: Algebra,
@@ -1415,27 +1424,47 @@ fn followed_by_any_k() {
 }
 
 #[test]
-fn followed_by_initial_rho_doesnt_crash() {
+fn followed_by_empty_lists() {
     let a = &[][..];
     let b = &[][..];
     let c = FollowedBy { a: a, b: b };
-    assert_eq!(c.rho(NEGATIVE_INFINITY), END_EXTENT);
+    assert_eq!(all_extents(c), []);
 }
 
 #[test]
-fn followed_by_tau_prime_only_result() {
-    let a = &[(1, 2)][..];
-    let b = &[(3, 4)][..];
+fn followed_by_one_empty_list() {
+    let a = &[(1,2)][..];
+    let b = &[][..];
+
     let c = FollowedBy { a: a, b: b };
-    assert_eq!(c.tau_prime(4), (1,4));
+    assert_eq!(all_extents(c), []);
+
+    let c = FollowedBy { a: b, b: a };
+    assert_eq!(all_extents(c), []);
 }
 
 #[test]
-fn followed_by_tau_prime_after_last_result() {
-    let a = &[(1, 2)][..];
-    let b = &[(3, 4)][..];
+fn followed_by_overlapping() {
+    let a = &[(1,2)][..];
+    let b = &[(2,3)][..];
     let c = FollowedBy { a: a, b: b };
-    assert_eq!(c.tau_prime(3), START_EXTENT);
+    assert_eq!(all_extents(c), []);
+}
+
+#[test]
+fn followed_by_in_ascending_order() {
+    let a = &[(1,2)][..];
+    let b = &[(3,4)][..];
+    let c = FollowedBy { a: a, b: b };
+    assert_eq!(all_extents(c), [(1,4)]);
+}
+
+#[test]
+fn followed_by_in_descending_order() {
+    let a = &[(3,4)][..];
+    let b = &[(1,2)][..];
+    let c = FollowedBy { a: a, b: b };
+    assert_eq!(all_extents(c), []);
 }
 
 trait QuickcheckAlgebra : Algebra + Debug {

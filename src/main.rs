@@ -445,7 +445,6 @@ impl<A, B> Algebra for NotContaining<A, B>
     where A: Algebra,
           B: Algebra,
 {
-    // TODO: test
     fn tau(&self, k: Position) -> Extent {
         check_forwards!(k);
 
@@ -453,7 +452,13 @@ impl<A, B> Algebra for NotContaining<A, B>
         self.rho(q)
     }
 
-    // TODO: test
+    fn tau_prime(&self, k: Position) -> Extent {
+        check_backwards!(k);
+
+        let (p, _) = self.a.tau_prime(k);
+        self.rho_prime(p)
+    }
+
     fn rho(&self, k: Position) -> Extent {
         check_forwards!(k);
 
@@ -465,6 +470,20 @@ impl<A, B> Algebra for NotContaining<A, B>
         } else {
             // TODO: prevent recursion?
             self.tau(p1.increment())
+        }
+    }
+
+    fn rho_prime(&self, k: Position) -> Extent {
+        check_backwards!(k);
+
+        let (p0, q0) = self.a.rho_prime(k);
+        let (p1, q1) = self.b.tau_prime(q0);
+
+        if p1 < p0 {
+            (p0, q0)
+        } else {
+            // TODO: prevent recursion?
+           self.tau_prime(q1.decrement())
         }
     }
 }
@@ -1061,6 +1080,83 @@ fn not_contained_in_needle_ends_too_late() {
 }
 
 #[test]
+fn not_containing_all_tau_matches_all_rho() {
+    fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
+        let c = NotContaining { a: &a, b: &b };
+        iter_eq(c.iter_tau(), c.iter_rho())
+    }
+
+    quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+}
+
+#[test]
+fn not_containing_all_tau_prime_matches_all_rho_prime() {
+    fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
+        let c = NotContaining { a: &a, b: &b };
+        iter_eq(c.iter_tau_prime(), c.iter_rho_prime())
+    }
+
+    quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+}
+
+#[test]
+fn not_containing_any_k() {
+    fn prop(a: RandomExtentList, b: RandomExtentList, k: Position) -> bool {
+        any_k(NotContaining { a: &a, b: &b }, k)
+    }
+
+    quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
+}
+
+#[test]
+fn not_containing_haystack_fully_around_needle() {
+    let a = &[(1,4)][..];
+    let b = &[(2,3)][..];
+    let c = NotContaining { a: a, b: b };
+    assert_eq!(c.tau(1), END_EXTENT);
+}
+
+#[test]
+fn not_containing_haystack_end_matches_needle_end() {
+    let a = &[(1,4)][..];
+    let b = &[(2,4)][..];
+    let c = NotContaining { a: a, b: b };
+    assert_eq!(c.tau(1), END_EXTENT);
+}
+
+#[test]
+fn not_containing_haystack_start_matches_needle_start() {
+    let a = &[(1,4)][..];
+    let b = &[(1,3)][..];
+    let c = NotContaining { a: a, b: b };
+    assert_eq!(c.tau(1), END_EXTENT);
+}
+
+#[test]
+fn not_containing_haystack_and_needle_exactly_match() {
+    let a = &[(1,4)][..];
+    let b = &[(1,4)][..];
+    let c = NotContaining { a: a, b: b };
+    assert_eq!(c.tau(1), END_EXTENT);
+}
+
+#[test]
+fn not_containing_haystack_starts_too_late() {
+    let a = &[(2,4)][..];
+    let b = &[(1,3)][..];
+    let c = NotContaining { a: a, b: b };
+    assert_eq!(c.tau(1), (2,4));
+}
+
+#[test]
+fn not_containing_haystack_ends_too_early() {
+    let a = &[(1,4)][..];
+    let b = &[(2,5)][..];
+    let c = NotContaining { a: a, b: b };
+    assert_eq!(c.tau(1), (1,4));
+}
+
+#[test]
 fn both_of_all_tau_matches_all_rho() {
     fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
         let c = BothOf { a: &a, b: &b };
@@ -1290,12 +1386,13 @@ impl Arbitrary for ArbitraryAlgebraTree {
             let a: ArbitraryAlgebraTree = Arbitrary::arbitrary(&mut inner_gen);
             let b: ArbitraryAlgebraTree = Arbitrary::arbitrary(&mut inner_gen);
 
-            let c: Box<QuickcheckAlgebra+Send> = match g.gen_range(0, 5) {
+            let c: Box<QuickcheckAlgebra+Send> = match g.gen_range(0, 6) {
                 0 => Box::new(ContainedIn    { a: a, b: b }),
                 1 => Box::new(Containing     { a: a, b: b }),
                 2 => Box::new(NotContainedIn { a: a, b: b }),
-                3 => Box::new(BothOf         { a: a, b: b }),
-                4 => Box::new(FollowedBy     { a: a, b: b }),
+                3 => Box::new(NotContaining  { a: a, b: b }),
+                4 => Box::new(BothOf         { a: a, b: b }),
+                5 => Box::new(FollowedBy     { a: a, b: b }),
                 _ => unreachable!(),
             };
 

@@ -553,27 +553,26 @@ impl<A, B> Algebra for BothOf<A, B>
     }
 }
 
-/// Creates extents that an extent from either list would be a
-/// subextent of.
+/// Finds extents that an extent from either list would be a subextent
+/// of.
 ///
-/// # Note
+/// # Errors in the paper
 ///
-/// `OneOf::tau` and `OneOf::rho` do *not* produce the same
-/// list. As an example:
-///
-/// ```
-/// A: (1,1)
-/// B: (1,2)
-/// ```
-///
-/// The only extent that *starts* in either input list would be
-/// (1,1). There are two extents that *end* in either list: (1,1) and
-/// (1,2). A similar construction exists for
+/// Using the implementation in the paper, `OneOf::tau` and
+/// `OneOf::rho` do *not* produce the same list. As an example:
 ///
 /// ```
-/// A: (1,2)
-/// B: (2,2)
+///          k
+/// |--*==*--|--|
+/// *==|==|==|==*
+/// 1  2  3  4  5
 /// ```
+///
+/// `tau` would be correct for k=[0,5], but `rho` fails at k=[4,5],
+/// producing (1,5).
+///
+/// To work around this, we work backward using tau_prime and then
+/// forward again with tau, until we find a valid extent.
 #[derive(Debug,Copy,Clone)]
 pub struct OneOf<A, B>
     where A: Algebra,
@@ -587,7 +586,6 @@ impl<A, B> Algebra for OneOf<A, B>
     where A: Algebra,
           B: Algebra,
 {
-    // TODO: test
     fn tau(&self, k: Position) -> Extent {
         check_forwards!(k);
 
@@ -608,24 +606,47 @@ impl<A, B> Algebra for OneOf<A, B>
         }
     }
 
-    // TODO: test
-    fn rho(&self, k: Position) -> Extent {
-        check_forwards!(k);
+    fn tau_prime(&self, k: Position) -> Extent {
+        check_backwards!(k);
 
-        // Find the extents ending after the point
-        let (p0, q0) = self.a.rho(k);
-        let (p1, q1) = self.b.rho(k);
+        // Find the extents after the point
+        let (p0, q0) = self.a.tau_prime(k);
+        let (p1, q1) = self.b.tau_prime(k);
 
         // TODO: use Ordering
 
         // Take the one that ends first, using the smaller extent in
         // case of ties
-        if q0 < q1 {
+        if p0 > p1 {
             (p0, q0)
-        } else if q0 > q1 {
+        } else if p0 < p1 {
             (p1, q1)
         } else {
-            (max(p0, p1), q0)
+            (p0, min(q0, q1))
+        }
+    }
+
+    fn rho(&self, k: Position) -> Extent {
+        check_forwards!(k);
+
+        let (p, q) = self.tau_prime(k);
+        if q.increment() > k { return (p, q) }
+
+        loop {
+            let (p, q) = self.tau(p.increment());
+            if q >= k {return (p, q) }
+        }
+    }
+
+    fn rho_prime(&self, k: Position) -> Extent {
+        check_backwards!(k);
+
+        let (p, q) = self.tau(k);
+        if p.decrement() < k { return (p, q) }
+
+        loop {
+            let (p, q) = self.tau_prime(q.decrement());
+            if p <= k { return (p, q) }
         }
     }
 }
@@ -1210,6 +1231,25 @@ fn both_of_lists_do_not_have_extents_starting_after_point() {
 }
 
 #[test]
+fn one_of_all_tau_matches_all_rho() {
+    fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
+        let c = OneOf { a: &a, b: &b };
+        iter_eq(c.iter_tau(), c.iter_rho())
+    }
+
+    quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+}
+
+#[test]
+fn one_of_any_k() {
+    fn prop(a: RandomExtentList, b: RandomExtentList, k: Position) -> bool {
+        any_k(OneOf { a: &a, b: &b }, k)
+    }
+
+    quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
+}
+
+#[test]
 fn one_of_merges_empty_lists() {
     let a = &[][..];
     let b = &[][..];
@@ -1288,6 +1328,61 @@ fn one_of_merges_overlapping_lists_nested_at_start() {
 
     let c = OneOf { a: &b, b: &a };
     assert_eq!(all_extents(c), [(1,3)]);
+}
+
+// The paper has an incorrect implementation of OneOf::rho, so we take
+// the time to have some extra test cases exposed by quickcheck.
+
+#[test]
+fn one_of_rho_one_empty_list() {
+    let a = &[][..];
+    let b = &[(1, 2)][..];
+    let c = OneOf { a: &a, b: &b };
+
+    assert_eq!(c.rho(0), (1,2));
+    assert_eq!(c.rho(1), (1,2));
+    assert_eq!(c.rho(2), (1,2));
+    assert_eq!(c.rho(3), END_EXTENT);
+}
+
+#[test]
+fn one_of_rho_nested_extents() {
+    let a = &[(2, 3)][..];
+    let b = &[(1, 5)][..];
+    let c = OneOf { a: &a, b: &b };
+
+    assert_eq!(c.rho(0), (2,3));
+    assert_eq!(c.rho(1), (2,3));
+    assert_eq!(c.rho(2), (2,3));
+    assert_eq!(c.rho(3), (2,3));
+    assert_eq!(c.rho(4), END_EXTENT);
+}
+
+#[test]
+fn one_of_rho_nested_extents_with_trailing_extent() {
+    let a = &[(1, 5)][..];
+    let b = &[(2, 3), (6, 7)][..];
+    let c = OneOf { a: &a, b: &b };
+
+    assert_eq!(c.rho(4), (6, 7));
+}
+
+#[test]
+fn one_of_rho_overlapping_extents() {
+    let a = &[(1, 4), (2, 7)][..];
+    let b = &[(3, 6)][..];
+    let c = OneOf { a: &a, b: &b };
+
+    assert_eq!(c.rho(4), (1, 4));
+}
+
+#[test]
+fn one_of_rho_overlapping_and_nested_extents() {
+    let a = &[(11, 78)][..];
+    let b = &[(9, 60), (11, 136)][..];
+    let c = OneOf { a: &a, b: &b };
+
+    assert_eq!(c.rho(12), (9, 60));
 }
 
 #[test]

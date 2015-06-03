@@ -560,7 +560,7 @@ impl<A, B> Algebra for BothOf<A, B>
 /// Using the implementation in the paper, `OneOf::tau` and
 /// `OneOf::rho` do *not* produce the same list. As an example:
 ///
-/// ```
+/// ```text
 ///          k
 /// |--*==*--|--|
 /// *==|==|==|==*
@@ -713,9 +713,6 @@ impl<A, B> Algebra for FollowedBy<A, B>
         let (_, q) = self.tau(k.increment());
         self.tau_prime(q.decrement())
     }
-}
-
-fn main() {
 }
 
 #[cfg(test)]

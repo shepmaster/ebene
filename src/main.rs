@@ -490,7 +490,6 @@ impl<A, B> Algebra for NotContaining<A, B>
 
 /// Creates extents that extents from both lists would be a subextent
 /// of.
-// TODO: functional tests
 #[derive(Debug,Copy,Clone)]
 pub struct BothOf<A, B>
     where A: Algebra,
@@ -1216,11 +1215,84 @@ fn both_of_any_k() {
 }
 
 #[test]
-fn both_of_initial_rho_doesnt_crash() {
+fn both_of_intersects_empty_lists() {
     let a = &[][..];
     let b = &[][..];
-    let c = BothOf { a: a, b: b };
-    assert_eq!(c.rho(NEGATIVE_INFINITY), END_EXTENT);
+    let c = BothOf { a: &a, b: &b };
+
+    assert_eq!(all_extents(c), []);
+}
+
+#[test]
+fn both_of_intersects_empty_list_and_nonempty_list() {
+    let a = &[][..];
+    let b = &[(1,2)][..];
+
+    let c = BothOf { a: &a, b: &b };
+    assert_eq!(all_extents(c), []);
+
+    let c = BothOf { a: &b, b: &a };
+    assert_eq!(all_extents(c), []);
+}
+
+#[test]
+fn both_of_intersects_nonempty_lists() {
+    let a = &[(1,2)][..];
+    let b = &[(3,4)][..];
+
+    let c = BothOf { a: &a, b: &b };
+    assert_eq!(all_extents(c), [(1,4)]);
+
+    let c = BothOf { a: &b, b: &a };
+    assert_eq!(all_extents(c), [(1,4)]);
+}
+
+#[test]
+fn both_of_intersects_overlapping_nonnested_lists() {
+    let a = &[(1,3)][..];
+    let b = &[(2,4)][..];
+
+    let c = BothOf { a: &a, b: &b };
+    assert_eq!(all_extents(c), [(1,4)]);
+
+    let c = BothOf { a: &b, b: &a };
+    assert_eq!(all_extents(c), [(1,4)]);
+}
+
+#[test]
+fn both_of_merges_overlapping_nested_lists() {
+    let a = &[(1,4)][..];
+    let b = &[(2,3)][..];
+
+    let c = BothOf { a: &a, b: &b };
+    assert_eq!(all_extents(c), [(1,4)]);
+
+    let c = BothOf { a: &b, b: &a };
+    assert_eq!(all_extents(c), [(1,4)]);
+}
+
+#[test]
+fn both_of_merges_overlapping_lists_nested_at_end() {
+    let a = &[(1,4)][..];
+    let b = &[(2,4)][..];
+
+    let c = BothOf { a: &a, b: &b };
+    assert_eq!(all_extents(c), [(1,4)]);
+
+    let c = BothOf { a: &b, b: &a };
+    assert_eq!(all_extents(c), [(1,4)]);
+}
+
+#[test]
+fn both_of_merges_overlapping_lists_nested_at_start() {
+    let a = &[(1,4)][..];
+    let b = &[(1,3)][..];
+
+    let c = BothOf { a: &a, b: &b };
+    assert_eq!(all_extents(c), [(1,4)]);
+
+    let c = BothOf { a: &b, b: &a };
+    assert_eq!(all_extents(c), [(1,4)]);
 }
 
 #[test]

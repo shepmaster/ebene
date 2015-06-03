@@ -53,7 +53,7 @@ const END_EXTENT: Extent = (POSITIVE_INFINITY, POSITIVE_INFINITY);
 /// 1. Swap usages of {tau,rho} with {tau-prime,rho-prime}
 /// 2. Swap the sign of epsilon
 /// 3. Swap the usages of p and q
-/// 4. Swap the usages of A and B
+/// 4. Swap comparison operators
 ///
 /// [paper]: http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.330.8436&rank=1
 #[allow(unused_variables)]

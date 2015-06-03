@@ -715,911 +715,917 @@ impl<A, B> Algebra for FollowedBy<A, B>
     }
 }
 
-extern crate quickcheck;
-extern crate rand;
-
-use std::fmt::Debug;
-use quickcheck::{quickcheck,Arbitrary};
-use rand::Rng;
-
-fn find_invalid_gc_list_pair(extents: &[Extent]) -> Option<(Extent, Extent)> {
-    extents
-        .windows(2)
-        .map(|window| (window[0], window[1]))
-        .find(|&(a, b)| b.0 <= a.0 || b.1 <= a.1)
-}
-
-fn assert_valid_gc_list(extents: &[Extent]) {
-    if let Some((a, b)) = find_invalid_gc_list_pair(extents) {
-        assert!(false, "{:?} and {:?} are invalid GC-list members", a, b)
-    }
-}
-
-#[derive(Debug,Clone,PartialEq)]
-struct RandomExtentList(Vec<Extent>);
-
-impl Arbitrary for RandomExtentList {
-    fn arbitrary<G>(g: &mut G) -> Self
-        where G: quickcheck::Gen
-    {
-        let mut extents = vec![];
-        let mut last_extent = (0, 1);
-
-        for _ in 0..g.size() {
-            let start_offset: u64 = Arbitrary::arbitrary(g);
-            let new_start = last_extent.0 + 1 + start_offset;
-            let min_width = last_extent.1 - last_extent.0;
-            let max_width = min_width + g.size() as u64;
-            let width = g.gen_range(min_width, max_width);
-
-            let extent = (new_start, new_start + width);
-            extents.push(extent);
-            last_extent = extent;
-        }
-
-        assert_valid_gc_list(&extents);
-        RandomExtentList(extents)
-    }
-
-    fn shrink(&self) -> Box<Iterator<Item=Self>> {
-        Box::new(RandomExtentListShrinker(self.0.clone()))
-    }
-}
-
-/// A simplistic shrinking strategy that preserves the ordering
-/// guarantee of the extent list
-struct RandomExtentListShrinker(Vec<Extent>);
-
-impl Iterator for RandomExtentListShrinker {
-    type Item = RandomExtentList;
-
-    fn next(&mut self) -> Option<RandomExtentList> {
-        match self.0.pop() {
-            Some(..) => Some(RandomExtentList(self.0.clone())),
-            None => None,
-        }
-    }
-}
-
-impl Algebra for RandomExtentList {
-    fn tau(&self, k: Position)       -> Extent { (&self.0[..]).tau(k) }
-    fn tau_prime(&self, k: Position) -> Extent { (&self.0[..]).tau_prime(k) }
-    fn rho(&self, k: Position)       -> Extent { (&self.0[..]).rho(k) }
-    fn rho_prime(&self, k: Position) -> Extent { (&self.0[..]).rho_prime(k) }
-}
-
 fn main() {
 }
 
-fn all_extents<A>(a: A) -> Vec<Extent>
-    where A: Algebra
-{
-    a.iter_tau().collect()
-}
+#[cfg(test)]
+mod test {
+    extern crate quickcheck;
+    extern crate rand;
 
-fn iter_eq<A, B, T, U>(a: A, b: B) -> bool
-    where A: IntoIterator<Item=T>,
-          B: IntoIterator<Item=U>,
-          T: PartialEq<U>,
-{
-    let mut a = a.into_iter();
-    let mut b = b.into_iter();
+    use std::fmt::Debug;
+    use self::quickcheck::{quickcheck,Arbitrary};
+    use self::rand::Rng;
 
-    loop {
-        match (a.next(), b.next()) {
-            (Some(ref a), Some(ref b)) if a == b => continue,
-            (None, None) => return true,
-            _ => return false,
+    use super::*;
+    use super::END_EXTENT;
+
+    fn find_invalid_gc_list_pair(extents: &[Extent]) -> Option<(Extent, Extent)> {
+        extents
+            .windows(2)
+            .map(|window| (window[0], window[1]))
+            .find(|&(a, b)| b.0 <= a.0 || b.1 <= a.1)
+    }
+
+    fn assert_valid_gc_list(extents: &[Extent]) {
+        if let Some((a, b)) = find_invalid_gc_list_pair(extents) {
+            assert!(false, "{:?} and {:?} are invalid GC-list members", a, b)
         }
     }
-}
 
-fn any_k<A>(operator: A, k: Position) -> bool
-    where A: Algebra + Copy
-{
-    let from_zero = all_extents(operator);
+    #[derive(Debug,Clone,PartialEq)]
+    struct RandomExtentList(Vec<Extent>);
 
-    let via_tau = operator.tau(k) == from_zero.tau(k);
-    let via_rho = operator.rho(k) == from_zero.rho(k);
-    let via_tau_prime = operator.tau_prime(k) == from_zero.tau_prime(k);
-    let via_rho_prime = operator.rho_prime(k) == from_zero.rho_prime(k);
+    impl Arbitrary for RandomExtentList {
+        fn arbitrary<G>(g: &mut G) -> Self
+            where G: quickcheck::Gen
+        {
+            let mut extents = vec![];
+            let mut last_extent = (0, 1);
 
-    via_tau && via_rho && via_tau_prime && via_rho_prime
-}
+            for _ in 0..g.size() {
+                let start_offset: u64 = Arbitrary::arbitrary(g);
+                let new_start = last_extent.0 + 1 + start_offset;
+                let min_width = last_extent.1 - last_extent.0;
+                let max_width = min_width + g.size() as u64;
+                let width = g.gen_range(min_width, max_width);
 
-#[test]
-fn extent_list_all_tau_matches_all_rho() {
-    fn prop(extents: RandomExtentList) -> bool {
-        let a = (&extents).iter_tau();
-        let b = (&extents).iter_rho();
+                let extent = (new_start, new_start + width);
+                extents.push(extent);
+                last_extent = extent;
+            }
 
-        iter_eq(a, b)
+            assert_valid_gc_list(&extents);
+            RandomExtentList(extents)
+        }
+
+        fn shrink(&self) -> Box<Iterator<Item=Self>> {
+            Box::new(RandomExtentListShrinker(self.0.clone()))
+        }
     }
 
-    quickcheck(prop as fn(RandomExtentList) -> bool);
-}
+    /// A simplistic shrinking strategy that preserves the ordering
+    /// guarantee of the extent list
+    struct RandomExtentListShrinker(Vec<Extent>);
 
-#[test]
-fn extent_list_tau_finds_extents_that_start_at_same_point() {
-    let a = &[(1,1), (2,2)][..];
-    assert_eq!(a.tau(1), (1,1));
-    assert_eq!(a.tau(2), (2,2));
-}
+    impl Iterator for RandomExtentListShrinker {
+        type Item = RandomExtentList;
 
-#[test]
-fn extent_list_tau_finds_first_extent_starting_after_point() {
-    let a = &[(3,4)][..];
-    assert_eq!(a.tau(1), (3,4));
-}
-
-#[test]
-fn extent_list_tau_returns_end_marker_if_no_match() {
-    let a = &[(1,3)][..];
-    assert_eq!(a.tau(2), END_EXTENT);
-}
-
-#[test]
-fn extent_list_rho_finds_extents_that_end_at_same_point() {
-    let a = &[(1,1), (2,2)][..];
-    assert_eq!(a.rho(1), (1,1));
-    assert_eq!(a.rho(2), (2,2));
-}
-
-#[test]
-fn extent_list_rho_finds_first_extent_ending_after_point() {
-    let a = &[(3,4)][..];
-    assert_eq!(a.rho(1), (3,4));
-}
-
-#[test]
-fn extent_list_rho_returns_end_marker_if_no_match() {
-    let a = &[(1,3)][..];
-    assert_eq!(a.rho(4), END_EXTENT);
-}
-
-#[test]
-fn contained_in_all_tau_matches_all_rho() {
-    fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
-        let c = ContainedIn { a: &a, b: &b };
-        iter_eq(c.iter_tau(), c.iter_rho())
+        fn next(&mut self) -> Option<RandomExtentList> {
+            match self.0.pop() {
+                Some(..) => Some(RandomExtentList(self.0.clone())),
+                None => None,
+            }
+        }
     }
 
-    quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
-}
-
-#[test]
-fn contained_in_all_tau_prime_matches_all_rho_prime() {
-    fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
-        let c = ContainedIn { a: &a, b: &b };
-        iter_eq(c.iter_tau_prime(), c.iter_rho_prime())
+    impl Algebra for RandomExtentList {
+        fn tau(&self, k: Position)       -> Extent { (&self.0[..]).tau(k) }
+        fn tau_prime(&self, k: Position) -> Extent { (&self.0[..]).tau_prime(k) }
+        fn rho(&self, k: Position)       -> Extent { (&self.0[..]).rho(k) }
+        fn rho_prime(&self, k: Position) -> Extent { (&self.0[..]).rho_prime(k) }
     }
 
-    quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
-}
-
-#[test]
-fn contained_in_any_k() {
-    fn prop(a: RandomExtentList, b: RandomExtentList, k: Position) -> bool {
-        any_k(ContainedIn { a: &a, b: &b }, k)
-    }
-
-    quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
-}
-
-#[test]
-fn contained_in_needle_is_fully_within_haystack() {
-    let a = &[(2,3)][..];
-    let b = &[(1,4)][..];
-    let c = ContainedIn { a: a, b: b };
-    assert_eq!(c.tau(1), (2,3));
-}
-
-#[test]
-fn contained_in_needle_end_matches_haystack_end() {
-    let a = &[(2,4)][..];
-    let b = &[(1,4)][..];
-    let c = ContainedIn { a: a, b: b };
-    assert_eq!(c.tau(1), (2,4));
-}
-
-#[test]
-fn contained_in_needle_start_matches_haystack_start() {
-    let a = &[(1,3)][..];
-    let b = &[(1,4)][..];
-    let c = ContainedIn { a: a, b: b };
-    assert_eq!(c.tau(1), (1,3));
-}
-
-#[test]
-fn contained_in_needle_and_haystack_exactly_match() {
-    let a = &[(1,4)][..];
-    let b = &[(1,4)][..];
-    let c = ContainedIn { a: a, b: b };
-    assert_eq!(c.tau(1), (1,4));
-}
-
-#[test]
-fn contained_in_needle_starts_too_early() {
-    let a = &[(1,3)][..];
-    let b = &[(2,4)][..];
-    let c = ContainedIn { a: a, b: b };
-    assert_eq!(c.tau(1), END_EXTENT);
-}
-
-#[test]
-fn contained_in_needle_ends_too_late() {
-    let a = &[(2,5)][..];
-    let b = &[(1,4)][..];
-    let c = ContainedIn { a: a, b: b };
-    assert_eq!(c.tau(1), END_EXTENT);
-}
-
-#[test]
-fn containing_all_tau_matches_all_rho() {
-    fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
-        let c = Containing { a: &a, b: &b };
-        iter_eq(c.iter_tau(), c.iter_rho())
-    }
-
-    quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
-}
-
-#[test]
-fn containing_all_tau_prime_matches_all_rho_prime() {
-    fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
-        let c = Containing { a: &a, b: &b };
-        iter_eq(c.iter_tau_prime(), c.iter_rho_prime())
-    }
-
-    quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
-}
-
-#[test]
-fn containing_any_k() {
-    fn prop(a: RandomExtentList, b: RandomExtentList, k: Position) -> bool {
-        any_k(Containing { a: &a, b: &b }, k)
-    }
-
-    quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
-}
-
-#[test]
-fn containing_haystack_fully_around_needle() {
-    let a = &[(1,4)][..];
-    let b = &[(2,3)][..];
-    let c = Containing { a: a, b: b };
-    assert_eq!(c.tau(1), (1,4));
-}
-
-#[test]
-fn containing_haystack_end_matches_needle_end() {
-    let a = &[(1,4)][..];
-    let b = &[(2,4)][..];
-    let c = Containing { a: a, b: b };
-    assert_eq!(c.tau(1), (1,4));
-}
-
-#[test]
-fn containing_haystack_start_matches_needle_start() {
-    let a = &[(1,4)][..];
-    let b = &[(1,3)][..];
-    let c = Containing { a: a, b: b };
-    assert_eq!(c.tau(1), (1,4));
-}
-
-#[test]
-fn containing_haystack_and_needle_exactly_match() {
-    let a = &[(1,4)][..];
-    let b = &[(1,4)][..];
-    let c = Containing { a: a, b: b };
-    assert_eq!(c.tau(1), (1,4));
-}
-
-#[test]
-fn containing_haystack_starts_too_late() {
-    let a = &[(2,4)][..];
-    let b = &[(1,3)][..];
-    let c = Containing { a: a, b: b };
-    assert_eq!(c.tau(1), END_EXTENT);
-}
-
-#[test]
-fn containing_haystack_ends_too_early() {
-    let a = &[(1,4)][..];
-    let b = &[(2,5)][..];
-    let c = Containing { a: a, b: b };
-    assert_eq!(c.tau(1), END_EXTENT);
-}
-
-#[test]
-fn not_contained_in_all_tau_matches_all_rho() {
-    fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
-        let c = NotContainedIn { a: &a, b: &b };
-        iter_eq(c.iter_tau(), c.iter_rho())
-    }
-
-    quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
-}
-
-#[test]
-fn not_contained_in_all_tau_prime_matches_all_rho_prime() {
-    fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
-        let c = NotContainedIn { a: &a, b: &b };
-        iter_eq(c.iter_tau_prime(), c.iter_rho_prime())
-    }
-
-    quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
-}
-
-#[test]
-fn not_contained_in_any_k() {
-    fn prop(a: RandomExtentList, b: RandomExtentList, k: Position) -> bool {
-        any_k(NotContainedIn { a: &a, b: &b }, k)
-    }
-
-    quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
-}
-
-#[test]
-fn not_contained_in_needle_is_fully_within_haystack() {
-    let a = &[(2,3)][..];
-    let b = &[(1,4)][..];
-    let c = NotContainedIn { a: a, b: b };
-    assert_eq!(c.tau(1), END_EXTENT);
-}
-
-#[test]
-fn not_contained_in_needle_end_matches_haystack_end() {
-    let a = &[(2,4)][..];
-    let b = &[(1,4)][..];
-    let c = NotContainedIn { a: a, b: b };
-    assert_eq!(c.tau(1), END_EXTENT);
-}
-
-#[test]
-fn not_contained_in_needle_start_matches_haystack_start() {
-    let a = &[(1,3)][..];
-    let b = &[(1,4)][..];
-    let c = NotContainedIn { a: a, b: b };
-    assert_eq!(c.tau(1), END_EXTENT);
-}
-
-#[test]
-fn not_contained_in_needle_and_haystack_exactly_match() {
-    let a = &[(1,4)][..];
-    let b = &[(1,4)][..];
-    let c = NotContainedIn { a: a, b: b };
-    assert_eq!(c.tau(1), END_EXTENT);
-}
-
-#[test]
-fn not_contained_in_needle_starts_too_early() {
-    let a = &[(1,3)][..];
-    let b = &[(2,4)][..];
-    let c = NotContainedIn { a: a, b: b };
-    assert_eq!(c.tau(1), (1,3));
-}
-
-#[test]
-fn not_contained_in_needle_ends_too_late() {
-    let a = &[(2,5)][..];
-    let b = &[(1,4)][..];
-    let c = NotContainedIn { a: a, b: b };
-    assert_eq!(c.tau(1), (2,5));
-}
-
-#[test]
-fn not_containing_all_tau_matches_all_rho() {
-    fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
-        let c = NotContaining { a: &a, b: &b };
-        iter_eq(c.iter_tau(), c.iter_rho())
-    }
-
-    quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
-}
-
-#[test]
-fn not_containing_all_tau_prime_matches_all_rho_prime() {
-    fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
-        let c = NotContaining { a: &a, b: &b };
-        iter_eq(c.iter_tau_prime(), c.iter_rho_prime())
-    }
-
-    quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
-}
-
-#[test]
-fn not_containing_any_k() {
-    fn prop(a: RandomExtentList, b: RandomExtentList, k: Position) -> bool {
-        any_k(NotContaining { a: &a, b: &b }, k)
-    }
-
-    quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
-}
-
-#[test]
-fn not_containing_haystack_fully_around_needle() {
-    let a = &[(1,4)][..];
-    let b = &[(2,3)][..];
-    let c = NotContaining { a: a, b: b };
-    assert_eq!(c.tau(1), END_EXTENT);
-}
-
-#[test]
-fn not_containing_haystack_end_matches_needle_end() {
-    let a = &[(1,4)][..];
-    let b = &[(2,4)][..];
-    let c = NotContaining { a: a, b: b };
-    assert_eq!(c.tau(1), END_EXTENT);
-}
-
-#[test]
-fn not_containing_haystack_start_matches_needle_start() {
-    let a = &[(1,4)][..];
-    let b = &[(1,3)][..];
-    let c = NotContaining { a: a, b: b };
-    assert_eq!(c.tau(1), END_EXTENT);
-}
-
-#[test]
-fn not_containing_haystack_and_needle_exactly_match() {
-    let a = &[(1,4)][..];
-    let b = &[(1,4)][..];
-    let c = NotContaining { a: a, b: b };
-    assert_eq!(c.tau(1), END_EXTENT);
-}
-
-#[test]
-fn not_containing_haystack_starts_too_late() {
-    let a = &[(2,4)][..];
-    let b = &[(1,3)][..];
-    let c = NotContaining { a: a, b: b };
-    assert_eq!(c.tau(1), (2,4));
-}
-
-#[test]
-fn not_containing_haystack_ends_too_early() {
-    let a = &[(1,4)][..];
-    let b = &[(2,5)][..];
-    let c = NotContaining { a: a, b: b };
-    assert_eq!(c.tau(1), (1,4));
-}
-
-#[test]
-fn both_of_all_tau_matches_all_rho() {
-    fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
-        let c = BothOf { a: &a, b: &b };
-        iter_eq(c.iter_tau(), c.iter_rho())
-    }
-
-    quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
-}
-
-#[test]
-fn both_of_all_tau_prime_matches_all_rho_prime() {
-    fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
-        let c = BothOf { a: &a, b: &b };
-        iter_eq(c.iter_tau_prime(), c.iter_rho_prime())
-    }
-
-    quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
-}
-
-#[test]
-fn both_of_any_k() {
-    fn prop(a: RandomExtentList, b: RandomExtentList, k: Position) -> bool {
-        any_k(BothOf { a: &a, b: &b }, k)
-    }
-
-    quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
-}
-
-#[test]
-fn both_of_intersects_empty_lists() {
-    let a = &[][..];
-    let b = &[][..];
-    let c = BothOf { a: &a, b: &b };
-
-    assert_eq!(all_extents(c), []);
-}
-
-#[test]
-fn both_of_intersects_empty_list_and_nonempty_list() {
-    let a = &[][..];
-    let b = &[(1,2)][..];
-
-    let c = BothOf { a: &a, b: &b };
-    assert_eq!(all_extents(c), []);
-
-    let c = BothOf { a: &b, b: &a };
-    assert_eq!(all_extents(c), []);
-}
-
-#[test]
-fn both_of_intersects_nonempty_lists() {
-    let a = &[(1,2)][..];
-    let b = &[(3,4)][..];
-
-    let c = BothOf { a: &a, b: &b };
-    assert_eq!(all_extents(c), [(1,4)]);
-
-    let c = BothOf { a: &b, b: &a };
-    assert_eq!(all_extents(c), [(1,4)]);
-}
-
-#[test]
-fn both_of_intersects_overlapping_nonnested_lists() {
-    let a = &[(1,3)][..];
-    let b = &[(2,4)][..];
-
-    let c = BothOf { a: &a, b: &b };
-    assert_eq!(all_extents(c), [(1,4)]);
-
-    let c = BothOf { a: &b, b: &a };
-    assert_eq!(all_extents(c), [(1,4)]);
-}
-
-#[test]
-fn both_of_merges_overlapping_nested_lists() {
-    let a = &[(1,4)][..];
-    let b = &[(2,3)][..];
-
-    let c = BothOf { a: &a, b: &b };
-    assert_eq!(all_extents(c), [(1,4)]);
-
-    let c = BothOf { a: &b, b: &a };
-    assert_eq!(all_extents(c), [(1,4)]);
-}
-
-#[test]
-fn both_of_merges_overlapping_lists_nested_at_end() {
-    let a = &[(1,4)][..];
-    let b = &[(2,4)][..];
-
-    let c = BothOf { a: &a, b: &b };
-    assert_eq!(all_extents(c), [(1,4)]);
-
-    let c = BothOf { a: &b, b: &a };
-    assert_eq!(all_extents(c), [(1,4)]);
-}
-
-#[test]
-fn both_of_merges_overlapping_lists_nested_at_start() {
-    let a = &[(1,4)][..];
-    let b = &[(1,3)][..];
-
-    let c = BothOf { a: &a, b: &b };
-    assert_eq!(all_extents(c), [(1,4)]);
-
-    let c = BothOf { a: &b, b: &a };
-    assert_eq!(all_extents(c), [(1,4)]);
-}
-
-#[test]
-fn both_of_lists_have_extents_starting_after_point() {
-    let a = &[(1,2)][..];
-    let b = &[(3,4)][..];
-    let c = BothOf { a: a, b: b };
-    assert_eq!(c.tau(1), (1,4));
-}
-
-#[test]
-fn both_of_lists_do_not_have_extents_starting_after_point() {
-    let a = &[(1,2)][..];
-    let b = &[(3,4)][..];
-    let c = BothOf { a: a, b: b };
-    assert_eq!(c.tau(5), END_EXTENT);
-}
-
-#[test]
-fn one_of_all_tau_matches_all_rho() {
-    fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
-        let c = OneOf { a: &a, b: &b };
-        iter_eq(c.iter_tau(), c.iter_rho())
-    }
-
-    quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
-}
-
-#[test]
-fn one_of_any_k() {
-    fn prop(a: RandomExtentList, b: RandomExtentList, k: Position) -> bool {
-        any_k(OneOf { a: &a, b: &b }, k)
-    }
-
-    quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
-}
-
-#[test]
-fn one_of_merges_empty_lists() {
-    let a = &[][..];
-    let b = &[][..];
-    let c = OneOf { a: &a, b: &b };
-
-    assert_eq!(all_extents(c), []);
-}
-
-#[test]
-fn one_of_merges_empty_list_and_nonempty_list() {
-    let a = &[][..];
-    let b = &[(1,2)][..];
-
-    let c = OneOf { a: &a, b: &b };
-    assert_eq!(all_extents(c), [(1,2)]);
-
-    let c = OneOf { a: &b, b: &a };
-    assert_eq!(all_extents(c), [(1,2)]);
-}
-
-#[test]
-fn one_of_merges_nonempty_lists() {
-    let a = &[(1,2)][..];
-    let b = &[(3,4)][..];
-
-    let c = OneOf { a: &a, b: &b };
-    assert_eq!(all_extents(c), [(1,2), (3,4)]);
-
-    let c = OneOf { a: &b, b: &a };
-    assert_eq!(all_extents(c), [(1,2), (3,4)]);
-}
-
-#[test]
-fn one_of_merges_overlapping_nonnested_lists() {
-    let a = &[(1,3)][..];
-    let b = &[(2,4)][..];
-
-    let c = OneOf { a: &a, b: &b };
-    assert_eq!(all_extents(c), [(1,3), (2,4)]);
-
-    let c = OneOf { a: &b, b: &a };
-    assert_eq!(all_extents(c), [(1,3), (2,4)]);
-}
-
-#[test]
-fn one_of_merges_overlapping_nested_lists() {
-    let a = &[(1,4)][..];
-    let b = &[(2,3)][..];
-
-    let c = OneOf { a: &a, b: &b };
-    assert_eq!(all_extents(c), [(2,3)]);
-
-    let c = OneOf { a: &b, b: &a };
-    assert_eq!(all_extents(c), [(2,3)]);
-}
-
-#[test]
-fn one_of_merges_overlapping_lists_nested_at_end() {
-    let a = &[(1,4)][..];
-    let b = &[(2,4)][..];
-
-    let c = OneOf { a: &a, b: &b };
-    assert_eq!(all_extents(c), [(2,4)]);
-
-    let c = OneOf { a: &b, b: &a };
-    assert_eq!(all_extents(c), [(2,4)]);
-}
-
-#[test]
-fn one_of_merges_overlapping_lists_nested_at_start() {
-    let a = &[(1,4)][..];
-    let b = &[(1,3)][..];
-
-    let c = OneOf { a: &a, b: &b };
-    assert_eq!(all_extents(c), [(1,3)]);
-
-    let c = OneOf { a: &b, b: &a };
-    assert_eq!(all_extents(c), [(1,3)]);
-}
-
-// The paper has an incorrect implementation of OneOf::rho, so we take
-// the time to have some extra test cases exposed by quickcheck.
-
-#[test]
-fn one_of_rho_one_empty_list() {
-    let a = &[][..];
-    let b = &[(1, 2)][..];
-    let c = OneOf { a: &a, b: &b };
-
-    assert_eq!(c.rho(0), (1,2));
-    assert_eq!(c.rho(1), (1,2));
-    assert_eq!(c.rho(2), (1,2));
-    assert_eq!(c.rho(3), END_EXTENT);
-}
-
-#[test]
-fn one_of_rho_nested_extents() {
-    let a = &[(2, 3)][..];
-    let b = &[(1, 5)][..];
-    let c = OneOf { a: &a, b: &b };
-
-    assert_eq!(c.rho(0), (2,3));
-    assert_eq!(c.rho(1), (2,3));
-    assert_eq!(c.rho(2), (2,3));
-    assert_eq!(c.rho(3), (2,3));
-    assert_eq!(c.rho(4), END_EXTENT);
-}
-
-#[test]
-fn one_of_rho_nested_extents_with_trailing_extent() {
-    let a = &[(1, 5)][..];
-    let b = &[(2, 3), (6, 7)][..];
-    let c = OneOf { a: &a, b: &b };
-
-    assert_eq!(c.rho(4), (6, 7));
-}
-
-#[test]
-fn one_of_rho_overlapping_extents() {
-    let a = &[(1, 4), (2, 7)][..];
-    let b = &[(3, 6)][..];
-    let c = OneOf { a: &a, b: &b };
-
-    assert_eq!(c.rho(4), (1, 4));
-}
-
-#[test]
-fn one_of_rho_overlapping_and_nested_extents() {
-    let a = &[(11, 78)][..];
-    let b = &[(9, 60), (11, 136)][..];
-    let c = OneOf { a: &a, b: &b };
-
-    assert_eq!(c.rho(12), (9, 60));
-}
-
-#[test]
-fn followed_by_all_tau_matches_all_rho() {
-    fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
-        let c = FollowedBy { a: &a, b: &b };
-        iter_eq(c.iter_tau(), c.iter_rho())
-    }
-
-    quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
-}
-
-#[test]
-fn followed_by_all_tau_prime_matches_all_rho_prime() {
-    fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
-        let c = FollowedBy { a: &a, b: &b };
-        iter_eq(c.iter_tau_prime(), c.iter_rho_prime())
-    }
-
-    quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
-}
-
-#[test]
-fn followed_by_any_k() {
-    fn prop(a: RandomExtentList, b: RandomExtentList, k: Position) -> bool {
-        any_k(FollowedBy { a: &a, b: &b }, k)
-    }
-
-    quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
-}
-
-#[test]
-fn followed_by_empty_lists() {
-    let a = &[][..];
-    let b = &[][..];
-    let c = FollowedBy { a: a, b: b };
-    assert_eq!(all_extents(c), []);
-}
-
-#[test]
-fn followed_by_one_empty_list() {
-    let a = &[(1,2)][..];
-    let b = &[][..];
-
-    let c = FollowedBy { a: a, b: b };
-    assert_eq!(all_extents(c), []);
-
-    let c = FollowedBy { a: b, b: a };
-    assert_eq!(all_extents(c), []);
-}
-
-#[test]
-fn followed_by_overlapping() {
-    let a = &[(1,2)][..];
-    let b = &[(2,3)][..];
-    let c = FollowedBy { a: a, b: b };
-    assert_eq!(all_extents(c), []);
-}
-
-#[test]
-fn followed_by_in_ascending_order() {
-    let a = &[(1,2)][..];
-    let b = &[(3,4)][..];
-    let c = FollowedBy { a: a, b: b };
-    assert_eq!(all_extents(c), [(1,4)]);
-}
-
-#[test]
-fn followed_by_in_descending_order() {
-    let a = &[(3,4)][..];
-    let b = &[(1,2)][..];
-    let c = FollowedBy { a: a, b: b };
-    assert_eq!(all_extents(c), []);
-}
-
-trait QuickcheckAlgebra : Algebra + Debug {
-    fn clone_quickcheck_algebra(&self) -> Box<QuickcheckAlgebra + Send>;
-}
-
-impl<A> QuickcheckAlgebra for A
-    where A: Algebra + Debug + Clone + Send + 'static
-{
-    fn clone_quickcheck_algebra(&self) -> Box<QuickcheckAlgebra + Send> {
-        Box::new(self.clone())
-    }
-}
-
-#[derive(Debug)]
-struct ArbitraryAlgebraTree(Box<QuickcheckAlgebra + Send>);
-
-impl Clone for ArbitraryAlgebraTree {
-    fn clone(&self) -> ArbitraryAlgebraTree {
-        ArbitraryAlgebraTree(self.0.clone_quickcheck_algebra())
-    }
-}
-
-impl Algebra for ArbitraryAlgebraTree {
-    fn tau(&self, k: Position)       -> Extent { self.0.tau(k) }
-    fn tau_prime(&self, k: Position) -> Extent { self.0.tau_prime(k) }
-    fn rho(&self, k: Position)       -> Extent { self.0.rho(k) }
-    fn rho_prime(&self, k: Position) -> Extent { self.0.rho_prime(k) }
-}
-
-impl Arbitrary for ArbitraryAlgebraTree {
-    fn arbitrary<G>(g: &mut G) -> Self
-        where G: quickcheck::Gen
+    fn all_extents<A>(a: A) -> Vec<Extent>
+        where A: Algebra
     {
-        let generate_node: bool = g.gen();
+        a.iter_tau().collect()
+    }
 
-        if g.size() == 0 || ! generate_node {
-            let extents: RandomExtentList = Arbitrary::arbitrary(g);
-            ArbitraryAlgebraTree(Box::new(extents))
-        } else {
-            let mut inner_gen = quickcheck::StdGen::new(rand::thread_rng(), g.size() / 2);
+    fn iter_eq<A, B, T, U>(a: A, b: B) -> bool
+        where A: IntoIterator<Item=T>,
+              B: IntoIterator<Item=U>,
+              T: PartialEq<U>,
+    {
+        let mut a = a.into_iter();
+        let mut b = b.into_iter();
 
-            let a: ArbitraryAlgebraTree = Arbitrary::arbitrary(&mut inner_gen);
-            let b: ArbitraryAlgebraTree = Arbitrary::arbitrary(&mut inner_gen);
-
-            let c: Box<QuickcheckAlgebra+Send> = match g.gen_range(0, 6) {
-                0 => Box::new(ContainedIn    { a: a, b: b }),
-                1 => Box::new(Containing     { a: a, b: b }),
-                2 => Box::new(NotContainedIn { a: a, b: b }),
-                3 => Box::new(NotContaining  { a: a, b: b }),
-                4 => Box::new(BothOf         { a: a, b: b }),
-                5 => Box::new(FollowedBy     { a: a, b: b }),
-                _ => unreachable!(),
-            };
-
-            ArbitraryAlgebraTree(c)
+        loop {
+            match (a.next(), b.next()) {
+                (Some(ref a), Some(ref b)) if a == b => continue,
+                (None, None) => return true,
+                _ => return false,
+            }
         }
     }
-}
 
-#[test]
-fn tree_of_operators_all_tau_matches_all_rho() {
-    fn prop(a: ArbitraryAlgebraTree) -> bool {
-        iter_eq((&a).iter_tau(), (&a).iter_rho())
+    fn any_k<A>(operator: A, k: Position) -> bool
+        where A: Algebra + Copy
+    {
+        let from_zero = all_extents(operator);
+
+        let via_tau = operator.tau(k) == from_zero.tau(k);
+        let via_rho = operator.rho(k) == from_zero.rho(k);
+        let via_tau_prime = operator.tau_prime(k) == from_zero.tau_prime(k);
+        let via_rho_prime = operator.rho_prime(k) == from_zero.rho_prime(k);
+
+        via_tau && via_rho && via_tau_prime && via_rho_prime
     }
 
-    quickcheck(prop as fn(ArbitraryAlgebraTree) -> bool);
-}
+    #[test]
+    fn extent_list_all_tau_matches_all_rho() {
+        fn prop(extents: RandomExtentList) -> bool {
+            let a = (&extents).iter_tau();
+            let b = (&extents).iter_rho();
 
-#[test]
-fn tree_of_operators_all_tau_prime_matches_all_rho_prime() {
-    fn prop(a: ArbitraryAlgebraTree) -> bool {
-        iter_eq((&a).iter_tau_prime(), (&a).iter_rho_prime())
+            iter_eq(a, b)
+        }
+
+        quickcheck(prop as fn(RandomExtentList) -> bool);
     }
 
-    quickcheck(prop as fn(ArbitraryAlgebraTree) -> bool);
-}
-
-#[test]
-fn tree_of_operators_any_k() {
-    fn prop(a: ArbitraryAlgebraTree, k: Position) -> bool {
-        any_k(&a, k)
+    #[test]
+    fn extent_list_tau_finds_extents_that_start_at_same_point() {
+        let a = &[(1,1), (2,2)][..];
+        assert_eq!(a.tau(1), (1,1));
+        assert_eq!(a.tau(2), (2,2));
     }
 
-    quickcheck(prop as fn(ArbitraryAlgebraTree, Position) -> bool);
+    #[test]
+    fn extent_list_tau_finds_first_extent_starting_after_point() {
+        let a = &[(3,4)][..];
+        assert_eq!(a.tau(1), (3,4));
+    }
+
+    #[test]
+    fn extent_list_tau_returns_end_marker_if_no_match() {
+        let a = &[(1,3)][..];
+        assert_eq!(a.tau(2), END_EXTENT);
+    }
+
+    #[test]
+    fn extent_list_rho_finds_extents_that_end_at_same_point() {
+        let a = &[(1,1), (2,2)][..];
+        assert_eq!(a.rho(1), (1,1));
+        assert_eq!(a.rho(2), (2,2));
+    }
+
+    #[test]
+    fn extent_list_rho_finds_first_extent_ending_after_point() {
+        let a = &[(3,4)][..];
+        assert_eq!(a.rho(1), (3,4));
+    }
+
+    #[test]
+    fn extent_list_rho_returns_end_marker_if_no_match() {
+        let a = &[(1,3)][..];
+        assert_eq!(a.rho(4), END_EXTENT);
+    }
+
+    #[test]
+    fn contained_in_all_tau_matches_all_rho() {
+        fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
+            let c = ContainedIn { a: &a, b: &b };
+            iter_eq(c.iter_tau(), c.iter_rho())
+        }
+
+        quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+    }
+
+    #[test]
+    fn contained_in_all_tau_prime_matches_all_rho_prime() {
+        fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
+            let c = ContainedIn { a: &a, b: &b };
+            iter_eq(c.iter_tau_prime(), c.iter_rho_prime())
+        }
+
+        quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+    }
+
+    #[test]
+    fn contained_in_any_k() {
+        fn prop(a: RandomExtentList, b: RandomExtentList, k: Position) -> bool {
+            any_k(ContainedIn { a: &a, b: &b }, k)
+        }
+
+        quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
+    }
+
+    #[test]
+    fn contained_in_needle_is_fully_within_haystack() {
+        let a = &[(2,3)][..];
+        let b = &[(1,4)][..];
+        let c = ContainedIn { a: a, b: b };
+        assert_eq!(c.tau(1), (2,3));
+    }
+
+    #[test]
+    fn contained_in_needle_end_matches_haystack_end() {
+        let a = &[(2,4)][..];
+        let b = &[(1,4)][..];
+        let c = ContainedIn { a: a, b: b };
+        assert_eq!(c.tau(1), (2,4));
+    }
+
+    #[test]
+    fn contained_in_needle_start_matches_haystack_start() {
+        let a = &[(1,3)][..];
+        let b = &[(1,4)][..];
+        let c = ContainedIn { a: a, b: b };
+        assert_eq!(c.tau(1), (1,3));
+    }
+
+    #[test]
+    fn contained_in_needle_and_haystack_exactly_match() {
+        let a = &[(1,4)][..];
+        let b = &[(1,4)][..];
+        let c = ContainedIn { a: a, b: b };
+        assert_eq!(c.tau(1), (1,4));
+    }
+
+    #[test]
+    fn contained_in_needle_starts_too_early() {
+        let a = &[(1,3)][..];
+        let b = &[(2,4)][..];
+        let c = ContainedIn { a: a, b: b };
+        assert_eq!(c.tau(1), END_EXTENT);
+    }
+
+    #[test]
+    fn contained_in_needle_ends_too_late() {
+        let a = &[(2,5)][..];
+        let b = &[(1,4)][..];
+        let c = ContainedIn { a: a, b: b };
+        assert_eq!(c.tau(1), END_EXTENT);
+    }
+
+    #[test]
+    fn containing_all_tau_matches_all_rho() {
+        fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
+            let c = Containing { a: &a, b: &b };
+            iter_eq(c.iter_tau(), c.iter_rho())
+        }
+
+        quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+    }
+
+    #[test]
+    fn containing_all_tau_prime_matches_all_rho_prime() {
+        fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
+            let c = Containing { a: &a, b: &b };
+            iter_eq(c.iter_tau_prime(), c.iter_rho_prime())
+        }
+
+        quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+    }
+
+    #[test]
+    fn containing_any_k() {
+        fn prop(a: RandomExtentList, b: RandomExtentList, k: Position) -> bool {
+            any_k(Containing { a: &a, b: &b }, k)
+        }
+
+        quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
+    }
+
+    #[test]
+    fn containing_haystack_fully_around_needle() {
+        let a = &[(1,4)][..];
+        let b = &[(2,3)][..];
+        let c = Containing { a: a, b: b };
+        assert_eq!(c.tau(1), (1,4));
+    }
+
+    #[test]
+    fn containing_haystack_end_matches_needle_end() {
+        let a = &[(1,4)][..];
+        let b = &[(2,4)][..];
+        let c = Containing { a: a, b: b };
+        assert_eq!(c.tau(1), (1,4));
+    }
+
+    #[test]
+    fn containing_haystack_start_matches_needle_start() {
+        let a = &[(1,4)][..];
+        let b = &[(1,3)][..];
+        let c = Containing { a: a, b: b };
+        assert_eq!(c.tau(1), (1,4));
+    }
+
+    #[test]
+    fn containing_haystack_and_needle_exactly_match() {
+        let a = &[(1,4)][..];
+        let b = &[(1,4)][..];
+        let c = Containing { a: a, b: b };
+        assert_eq!(c.tau(1), (1,4));
+    }
+
+    #[test]
+    fn containing_haystack_starts_too_late() {
+        let a = &[(2,4)][..];
+        let b = &[(1,3)][..];
+        let c = Containing { a: a, b: b };
+        assert_eq!(c.tau(1), END_EXTENT);
+    }
+
+    #[test]
+    fn containing_haystack_ends_too_early() {
+        let a = &[(1,4)][..];
+        let b = &[(2,5)][..];
+        let c = Containing { a: a, b: b };
+        assert_eq!(c.tau(1), END_EXTENT);
+    }
+
+    #[test]
+    fn not_contained_in_all_tau_matches_all_rho() {
+        fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
+            let c = NotContainedIn { a: &a, b: &b };
+            iter_eq(c.iter_tau(), c.iter_rho())
+        }
+
+        quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+    }
+
+    #[test]
+    fn not_contained_in_all_tau_prime_matches_all_rho_prime() {
+        fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
+            let c = NotContainedIn { a: &a, b: &b };
+            iter_eq(c.iter_tau_prime(), c.iter_rho_prime())
+        }
+
+        quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+    }
+
+    #[test]
+    fn not_contained_in_any_k() {
+        fn prop(a: RandomExtentList, b: RandomExtentList, k: Position) -> bool {
+            any_k(NotContainedIn { a: &a, b: &b }, k)
+        }
+
+        quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
+    }
+
+    #[test]
+    fn not_contained_in_needle_is_fully_within_haystack() {
+        let a = &[(2,3)][..];
+        let b = &[(1,4)][..];
+        let c = NotContainedIn { a: a, b: b };
+        assert_eq!(c.tau(1), END_EXTENT);
+    }
+
+    #[test]
+    fn not_contained_in_needle_end_matches_haystack_end() {
+        let a = &[(2,4)][..];
+        let b = &[(1,4)][..];
+        let c = NotContainedIn { a: a, b: b };
+        assert_eq!(c.tau(1), END_EXTENT);
+    }
+
+    #[test]
+    fn not_contained_in_needle_start_matches_haystack_start() {
+        let a = &[(1,3)][..];
+        let b = &[(1,4)][..];
+        let c = NotContainedIn { a: a, b: b };
+        assert_eq!(c.tau(1), END_EXTENT);
+    }
+
+    #[test]
+    fn not_contained_in_needle_and_haystack_exactly_match() {
+        let a = &[(1,4)][..];
+        let b = &[(1,4)][..];
+        let c = NotContainedIn { a: a, b: b };
+        assert_eq!(c.tau(1), END_EXTENT);
+    }
+
+    #[test]
+    fn not_contained_in_needle_starts_too_early() {
+        let a = &[(1,3)][..];
+        let b = &[(2,4)][..];
+        let c = NotContainedIn { a: a, b: b };
+        assert_eq!(c.tau(1), (1,3));
+    }
+
+    #[test]
+    fn not_contained_in_needle_ends_too_late() {
+        let a = &[(2,5)][..];
+        let b = &[(1,4)][..];
+        let c = NotContainedIn { a: a, b: b };
+        assert_eq!(c.tau(1), (2,5));
+    }
+
+    #[test]
+    fn not_containing_all_tau_matches_all_rho() {
+        fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
+            let c = NotContaining { a: &a, b: &b };
+            iter_eq(c.iter_tau(), c.iter_rho())
+        }
+
+        quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+    }
+
+    #[test]
+    fn not_containing_all_tau_prime_matches_all_rho_prime() {
+        fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
+            let c = NotContaining { a: &a, b: &b };
+            iter_eq(c.iter_tau_prime(), c.iter_rho_prime())
+        }
+
+        quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+    }
+
+    #[test]
+    fn not_containing_any_k() {
+        fn prop(a: RandomExtentList, b: RandomExtentList, k: Position) -> bool {
+            any_k(NotContaining { a: &a, b: &b }, k)
+        }
+
+        quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
+    }
+
+    #[test]
+    fn not_containing_haystack_fully_around_needle() {
+        let a = &[(1,4)][..];
+        let b = &[(2,3)][..];
+        let c = NotContaining { a: a, b: b };
+        assert_eq!(c.tau(1), END_EXTENT);
+    }
+
+    #[test]
+    fn not_containing_haystack_end_matches_needle_end() {
+        let a = &[(1,4)][..];
+        let b = &[(2,4)][..];
+        let c = NotContaining { a: a, b: b };
+        assert_eq!(c.tau(1), END_EXTENT);
+    }
+
+    #[test]
+    fn not_containing_haystack_start_matches_needle_start() {
+        let a = &[(1,4)][..];
+        let b = &[(1,3)][..];
+        let c = NotContaining { a: a, b: b };
+        assert_eq!(c.tau(1), END_EXTENT);
+    }
+
+    #[test]
+    fn not_containing_haystack_and_needle_exactly_match() {
+        let a = &[(1,4)][..];
+        let b = &[(1,4)][..];
+        let c = NotContaining { a: a, b: b };
+        assert_eq!(c.tau(1), END_EXTENT);
+    }
+
+    #[test]
+    fn not_containing_haystack_starts_too_late() {
+        let a = &[(2,4)][..];
+        let b = &[(1,3)][..];
+        let c = NotContaining { a: a, b: b };
+        assert_eq!(c.tau(1), (2,4));
+    }
+
+    #[test]
+    fn not_containing_haystack_ends_too_early() {
+        let a = &[(1,4)][..];
+        let b = &[(2,5)][..];
+        let c = NotContaining { a: a, b: b };
+        assert_eq!(c.tau(1), (1,4));
+    }
+
+    #[test]
+    fn both_of_all_tau_matches_all_rho() {
+        fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
+            let c = BothOf { a: &a, b: &b };
+            iter_eq(c.iter_tau(), c.iter_rho())
+        }
+
+        quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+    }
+
+    #[test]
+    fn both_of_all_tau_prime_matches_all_rho_prime() {
+        fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
+            let c = BothOf { a: &a, b: &b };
+            iter_eq(c.iter_tau_prime(), c.iter_rho_prime())
+        }
+
+        quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+    }
+
+    #[test]
+    fn both_of_any_k() {
+        fn prop(a: RandomExtentList, b: RandomExtentList, k: Position) -> bool {
+            any_k(BothOf { a: &a, b: &b }, k)
+        }
+
+        quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
+    }
+
+    #[test]
+    fn both_of_intersects_empty_lists() {
+        let a = &[][..];
+        let b = &[][..];
+        let c = BothOf { a: &a, b: &b };
+
+        assert_eq!(all_extents(c), []);
+    }
+
+    #[test]
+    fn both_of_intersects_empty_list_and_nonempty_list() {
+        let a = &[][..];
+        let b = &[(1,2)][..];
+
+        let c = BothOf { a: &a, b: &b };
+        assert_eq!(all_extents(c), []);
+
+        let c = BothOf { a: &b, b: &a };
+        assert_eq!(all_extents(c), []);
+    }
+
+    #[test]
+    fn both_of_intersects_nonempty_lists() {
+        let a = &[(1,2)][..];
+        let b = &[(3,4)][..];
+
+        let c = BothOf { a: &a, b: &b };
+        assert_eq!(all_extents(c), [(1,4)]);
+
+        let c = BothOf { a: &b, b: &a };
+        assert_eq!(all_extents(c), [(1,4)]);
+    }
+
+    #[test]
+    fn both_of_intersects_overlapping_nonnested_lists() {
+        let a = &[(1,3)][..];
+        let b = &[(2,4)][..];
+
+        let c = BothOf { a: &a, b: &b };
+        assert_eq!(all_extents(c), [(1,4)]);
+
+        let c = BothOf { a: &b, b: &a };
+        assert_eq!(all_extents(c), [(1,4)]);
+    }
+
+    #[test]
+    fn both_of_merges_overlapping_nested_lists() {
+        let a = &[(1,4)][..];
+        let b = &[(2,3)][..];
+
+        let c = BothOf { a: &a, b: &b };
+        assert_eq!(all_extents(c), [(1,4)]);
+
+        let c = BothOf { a: &b, b: &a };
+        assert_eq!(all_extents(c), [(1,4)]);
+    }
+
+    #[test]
+    fn both_of_merges_overlapping_lists_nested_at_end() {
+        let a = &[(1,4)][..];
+        let b = &[(2,4)][..];
+
+        let c = BothOf { a: &a, b: &b };
+        assert_eq!(all_extents(c), [(1,4)]);
+
+        let c = BothOf { a: &b, b: &a };
+        assert_eq!(all_extents(c), [(1,4)]);
+    }
+
+    #[test]
+    fn both_of_merges_overlapping_lists_nested_at_start() {
+        let a = &[(1,4)][..];
+        let b = &[(1,3)][..];
+
+        let c = BothOf { a: &a, b: &b };
+        assert_eq!(all_extents(c), [(1,4)]);
+
+        let c = BothOf { a: &b, b: &a };
+        assert_eq!(all_extents(c), [(1,4)]);
+    }
+
+    #[test]
+    fn both_of_lists_have_extents_starting_after_point() {
+        let a = &[(1,2)][..];
+        let b = &[(3,4)][..];
+        let c = BothOf { a: a, b: b };
+        assert_eq!(c.tau(1), (1,4));
+    }
+
+    #[test]
+    fn both_of_lists_do_not_have_extents_starting_after_point() {
+        let a = &[(1,2)][..];
+        let b = &[(3,4)][..];
+        let c = BothOf { a: a, b: b };
+        assert_eq!(c.tau(5), END_EXTENT);
+    }
+
+    #[test]
+    fn one_of_all_tau_matches_all_rho() {
+        fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
+            let c = OneOf { a: &a, b: &b };
+            iter_eq(c.iter_tau(), c.iter_rho())
+        }
+
+        quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+    }
+
+    #[test]
+    fn one_of_any_k() {
+        fn prop(a: RandomExtentList, b: RandomExtentList, k: Position) -> bool {
+            any_k(OneOf { a: &a, b: &b }, k)
+        }
+
+        quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
+    }
+
+    #[test]
+    fn one_of_merges_empty_lists() {
+        let a = &[][..];
+        let b = &[][..];
+        let c = OneOf { a: &a, b: &b };
+
+        assert_eq!(all_extents(c), []);
+    }
+
+    #[test]
+    fn one_of_merges_empty_list_and_nonempty_list() {
+        let a = &[][..];
+        let b = &[(1,2)][..];
+
+        let c = OneOf { a: &a, b: &b };
+        assert_eq!(all_extents(c), [(1,2)]);
+
+        let c = OneOf { a: &b, b: &a };
+        assert_eq!(all_extents(c), [(1,2)]);
+    }
+
+    #[test]
+    fn one_of_merges_nonempty_lists() {
+        let a = &[(1,2)][..];
+        let b = &[(3,4)][..];
+
+        let c = OneOf { a: &a, b: &b };
+        assert_eq!(all_extents(c), [(1,2), (3,4)]);
+
+        let c = OneOf { a: &b, b: &a };
+        assert_eq!(all_extents(c), [(1,2), (3,4)]);
+    }
+
+    #[test]
+    fn one_of_merges_overlapping_nonnested_lists() {
+        let a = &[(1,3)][..];
+        let b = &[(2,4)][..];
+
+        let c = OneOf { a: &a, b: &b };
+        assert_eq!(all_extents(c), [(1,3), (2,4)]);
+
+        let c = OneOf { a: &b, b: &a };
+        assert_eq!(all_extents(c), [(1,3), (2,4)]);
+    }
+
+    #[test]
+    fn one_of_merges_overlapping_nested_lists() {
+        let a = &[(1,4)][..];
+        let b = &[(2,3)][..];
+
+        let c = OneOf { a: &a, b: &b };
+        assert_eq!(all_extents(c), [(2,3)]);
+
+        let c = OneOf { a: &b, b: &a };
+        assert_eq!(all_extents(c), [(2,3)]);
+    }
+
+    #[test]
+    fn one_of_merges_overlapping_lists_nested_at_end() {
+        let a = &[(1,4)][..];
+        let b = &[(2,4)][..];
+
+        let c = OneOf { a: &a, b: &b };
+        assert_eq!(all_extents(c), [(2,4)]);
+
+        let c = OneOf { a: &b, b: &a };
+        assert_eq!(all_extents(c), [(2,4)]);
+    }
+
+    #[test]
+    fn one_of_merges_overlapping_lists_nested_at_start() {
+        let a = &[(1,4)][..];
+        let b = &[(1,3)][..];
+
+        let c = OneOf { a: &a, b: &b };
+        assert_eq!(all_extents(c), [(1,3)]);
+
+        let c = OneOf { a: &b, b: &a };
+        assert_eq!(all_extents(c), [(1,3)]);
+    }
+
+    // The paper has an incorrect implementation of OneOf::rho, so we take
+    // the time to have some extra test cases exposed by quickcheck.
+
+    #[test]
+    fn one_of_rho_one_empty_list() {
+        let a = &[][..];
+        let b = &[(1, 2)][..];
+        let c = OneOf { a: &a, b: &b };
+
+        assert_eq!(c.rho(0), (1,2));
+        assert_eq!(c.rho(1), (1,2));
+        assert_eq!(c.rho(2), (1,2));
+        assert_eq!(c.rho(3), END_EXTENT);
+    }
+
+    #[test]
+    fn one_of_rho_nested_extents() {
+        let a = &[(2, 3)][..];
+        let b = &[(1, 5)][..];
+        let c = OneOf { a: &a, b: &b };
+
+        assert_eq!(c.rho(0), (2,3));
+        assert_eq!(c.rho(1), (2,3));
+        assert_eq!(c.rho(2), (2,3));
+        assert_eq!(c.rho(3), (2,3));
+        assert_eq!(c.rho(4), END_EXTENT);
+    }
+
+    #[test]
+    fn one_of_rho_nested_extents_with_trailing_extent() {
+        let a = &[(1, 5)][..];
+        let b = &[(2, 3), (6, 7)][..];
+        let c = OneOf { a: &a, b: &b };
+
+        assert_eq!(c.rho(4), (6, 7));
+    }
+
+    #[test]
+    fn one_of_rho_overlapping_extents() {
+        let a = &[(1, 4), (2, 7)][..];
+        let b = &[(3, 6)][..];
+        let c = OneOf { a: &a, b: &b };
+
+        assert_eq!(c.rho(4), (1, 4));
+    }
+
+    #[test]
+    fn one_of_rho_overlapping_and_nested_extents() {
+        let a = &[(11, 78)][..];
+        let b = &[(9, 60), (11, 136)][..];
+        let c = OneOf { a: &a, b: &b };
+
+        assert_eq!(c.rho(12), (9, 60));
+    }
+
+    #[test]
+    fn followed_by_all_tau_matches_all_rho() {
+        fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
+            let c = FollowedBy { a: &a, b: &b };
+            iter_eq(c.iter_tau(), c.iter_rho())
+        }
+
+        quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+    }
+
+    #[test]
+    fn followed_by_all_tau_prime_matches_all_rho_prime() {
+        fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
+            let c = FollowedBy { a: &a, b: &b };
+            iter_eq(c.iter_tau_prime(), c.iter_rho_prime())
+        }
+
+        quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+    }
+
+    #[test]
+    fn followed_by_any_k() {
+        fn prop(a: RandomExtentList, b: RandomExtentList, k: Position) -> bool {
+            any_k(FollowedBy { a: &a, b: &b }, k)
+        }
+
+        quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
+    }
+
+    #[test]
+    fn followed_by_empty_lists() {
+        let a = &[][..];
+        let b = &[][..];
+        let c = FollowedBy { a: a, b: b };
+        assert_eq!(all_extents(c), []);
+    }
+
+    #[test]
+    fn followed_by_one_empty_list() {
+        let a = &[(1,2)][..];
+        let b = &[][..];
+
+        let c = FollowedBy { a: a, b: b };
+        assert_eq!(all_extents(c), []);
+
+        let c = FollowedBy { a: b, b: a };
+        assert_eq!(all_extents(c), []);
+    }
+
+    #[test]
+    fn followed_by_overlapping() {
+        let a = &[(1,2)][..];
+        let b = &[(2,3)][..];
+        let c = FollowedBy { a: a, b: b };
+        assert_eq!(all_extents(c), []);
+    }
+
+    #[test]
+    fn followed_by_in_ascending_order() {
+        let a = &[(1,2)][..];
+        let b = &[(3,4)][..];
+        let c = FollowedBy { a: a, b: b };
+        assert_eq!(all_extents(c), [(1,4)]);
+    }
+
+    #[test]
+    fn followed_by_in_descending_order() {
+        let a = &[(3,4)][..];
+        let b = &[(1,2)][..];
+        let c = FollowedBy { a: a, b: b };
+        assert_eq!(all_extents(c), []);
+    }
+
+    trait QuickcheckAlgebra : Algebra + Debug {
+        fn clone_quickcheck_algebra(&self) -> Box<QuickcheckAlgebra + Send>;
+    }
+
+    impl<A> QuickcheckAlgebra for A
+        where A: Algebra + Debug + Clone + Send + 'static
+    {
+        fn clone_quickcheck_algebra(&self) -> Box<QuickcheckAlgebra + Send> {
+            Box::new(self.clone())
+        }
+    }
+
+    #[derive(Debug)]
+    struct ArbitraryAlgebraTree(Box<QuickcheckAlgebra + Send>);
+
+    impl Clone for ArbitraryAlgebraTree {
+        fn clone(&self) -> ArbitraryAlgebraTree {
+            ArbitraryAlgebraTree(self.0.clone_quickcheck_algebra())
+        }
+    }
+
+    impl Algebra for ArbitraryAlgebraTree {
+        fn tau(&self, k: Position)       -> Extent { self.0.tau(k) }
+        fn tau_prime(&self, k: Position) -> Extent { self.0.tau_prime(k) }
+        fn rho(&self, k: Position)       -> Extent { self.0.rho(k) }
+        fn rho_prime(&self, k: Position) -> Extent { self.0.rho_prime(k) }
+    }
+
+    impl Arbitrary for ArbitraryAlgebraTree {
+        fn arbitrary<G>(g: &mut G) -> Self
+            where G: quickcheck::Gen
+        {
+            let generate_node: bool = g.gen();
+
+            if g.size() == 0 || ! generate_node {
+                let extents: RandomExtentList = Arbitrary::arbitrary(g);
+                ArbitraryAlgebraTree(Box::new(extents))
+            } else {
+                let mut inner_gen = quickcheck::StdGen::new(rand::thread_rng(), g.size() / 2);
+
+                let a: ArbitraryAlgebraTree = Arbitrary::arbitrary(&mut inner_gen);
+                let b: ArbitraryAlgebraTree = Arbitrary::arbitrary(&mut inner_gen);
+
+                let c: Box<QuickcheckAlgebra+Send> = match g.gen_range(0, 6) {
+                    0 => Box::new(ContainedIn    { a: a, b: b }),
+                    1 => Box::new(Containing     { a: a, b: b }),
+                    2 => Box::new(NotContainedIn { a: a, b: b }),
+                    3 => Box::new(NotContaining  { a: a, b: b }),
+                    4 => Box::new(BothOf         { a: a, b: b }),
+                    5 => Box::new(FollowedBy     { a: a, b: b }),
+                    _ => unreachable!(),
+                };
+
+                ArbitraryAlgebraTree(c)
+            }
+        }
+    }
+
+    #[test]
+    fn tree_of_operators_all_tau_matches_all_rho() {
+        fn prop(a: ArbitraryAlgebraTree) -> bool {
+            iter_eq((&a).iter_tau(), (&a).iter_rho())
+        }
+
+        quickcheck(prop as fn(ArbitraryAlgebraTree) -> bool);
+    }
+
+    #[test]
+    fn tree_of_operators_all_tau_prime_matches_all_rho_prime() {
+        fn prop(a: ArbitraryAlgebraTree) -> bool {
+            iter_eq((&a).iter_tau_prime(), (&a).iter_rho_prime())
+        }
+
+        quickcheck(prop as fn(ArbitraryAlgebraTree) -> bool);
+    }
+
+    #[test]
+    fn tree_of_operators_any_k() {
+        fn prop(a: ArbitraryAlgebraTree, k: Position) -> bool {
+            any_k(&a, k)
+        }
+
+        quickcheck(prop as fn(ArbitraryAlgebraTree, Position) -> bool);
+    }
 }

@@ -105,13 +105,22 @@ pub trait Algebra {
     }
 }
 
+impl<'a, A: ?Sized> Algebra for Box<A>
+    where A: Algebra
+{
+    fn tau(&self, k: Position)       -> Extent { (**self).tau(k) }
+    fn tau_prime(&self, k: Position) -> Extent { (**self).tau_prime(k) }
+    fn rho(&self, k: Position)       -> Extent { (**self).rho(k) }
+    fn rho_prime(&self, k: Position) -> Extent { (**self).rho_prime(k) }
+}
+
 impl<'a, A: ?Sized> Algebra for &'a A
     where A: Algebra
 {
-    fn tau(&self, k: Position)       -> Extent { (*self).tau(k) }
-    fn tau_prime(&self, k: Position) -> Extent { (*self).tau_prime(k) }
-    fn rho(&self, k: Position)       -> Extent { (*self).rho(k) }
-    fn rho_prime(&self, k: Position) -> Extent { (*self).rho_prime(k) }
+    fn tau(&self, k: Position)       -> Extent { (**self).tau(k) }
+    fn tau_prime(&self, k: Position) -> Extent { (**self).tau_prime(k) }
+    fn rho(&self, k: Position)       -> Extent { (**self).rho(k) }
+    fn rho_prime(&self, k: Position) -> Extent { (**self).rho_prime(k) }
 }
 
 #[derive(Debug,Copy,Clone)]

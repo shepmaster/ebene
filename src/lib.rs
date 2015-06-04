@@ -257,6 +257,13 @@ pub struct ContainedIn<A, B>
     b: B,
 }
 
+impl<A, B> ContainedIn<A, B>
+    where A: Algebra,
+          B: Algebra,
+{
+    pub fn new(a: A, b: B) -> Self { ContainedIn { a: a, b: b } }
+}
+
 impl<A, B> Algebra for ContainedIn<A, B>
     where A: Algebra,
           B: Algebra,
@@ -325,6 +332,13 @@ pub struct Containing<A, B>
     b: B,
 }
 
+impl<A, B> Containing<A, B>
+    where A: Algebra,
+          B: Algebra,
+{
+    pub fn new(a: A, b: B) -> Self { Containing { a: a, b: b } }
+}
+
 impl<A, B> Algebra for Containing<A, B>
     where A: Algebra,
           B: Algebra,
@@ -387,6 +401,13 @@ pub struct NotContainedIn<A, B>
     b: B,
 }
 
+impl<A, B> NotContainedIn<A, B>
+    where A: Algebra,
+          B: Algebra,
+{
+    pub fn new(a: A, b: B) -> Self { NotContainedIn { a: a, b: b } }
+}
+
 impl<A, B> Algebra for NotContainedIn<A, B>
     where A: Algebra,
           B: Algebra,
@@ -439,6 +460,13 @@ pub struct NotContaining<A, B>
 {
     a: A,
     b: B,
+}
+
+impl<A, B> NotContaining<A, B>
+    where A: Algebra,
+          B: Algebra,
+{
+    pub fn new(a: A, b: B) -> Self { NotContaining { a: a, b: b } }
 }
 
 impl<A, B> Algebra for NotContaining<A, B>
@@ -497,6 +525,13 @@ pub struct BothOf<A, B>
 {
     a: A,
     b: B,
+}
+
+impl<A, B> BothOf<A, B>
+    where A: Algebra,
+          B: Algebra,
+{
+    pub fn new(a: A, b: B) -> Self { BothOf { a: a, b: b } }
 }
 
 impl<A, B> Algebra for BothOf<A, B>
@@ -579,6 +614,13 @@ pub struct OneOf<A, B>
 {
     a: A,
     b: B,
+}
+
+impl<A, B> OneOf<A, B>
+    where A: Algebra,
+          B: Algebra,
+{
+    pub fn new(a: A, b: B) -> Self { OneOf { a: a, b: b } }
 }
 
 impl<A, B> Algebra for OneOf<A, B>
@@ -667,6 +709,13 @@ pub struct FollowedBy<A, B>
 {
     a: A,
     b: B,
+}
+
+impl<A, B> FollowedBy<A, B>
+    where A: Algebra,
+          B: Algebra,
+{
+    pub fn new(a: A, b: B) -> Self { FollowedBy { a: a, b: b } }
 }
 
 impl<A, B> Algebra for FollowedBy<A, B>

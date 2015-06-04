@@ -40,6 +40,15 @@ const END_EXTENT: Extent = (POSITIVE_INFINITY, POSITIVE_INFINITY);
 
 /// The basic query algebra from the [Clarke *et al.* paper][paper]
 ///
+/// # Iterators
+///
+/// Iterators are provided that return the entire result set in the
+/// positive direction (tau, rho) and the negative direction
+/// (tau-prime,rho-prime). Both forward iterators and both backwards
+/// iterators return the same extents, and the forwards and backwards
+/// iterators return the same extents in reverse order from each
+/// other. All 4 iterators are provided for completeness.
+///
 /// # tau-prime and rho-prime
 ///
 /// The paper does not give a concrete example of how to construct the
@@ -80,24 +89,28 @@ pub trait Algebra {
     /// passes the criteria (the last extent in order).
     fn rho_prime(&self, k: Position) -> Extent;
 
+    /// Find all extents in a forward direction using the tau primitive
     fn iter_tau(self) -> IterTau<Self>
         where Self: Sized
     {
         IterTau { list: self, k: NEGATIVE_INFINITY }
     }
 
+    /// Find all extents in a forward direction using the rho primitive
     fn iter_rho(self) -> IterRho<Self>
         where Self: Sized
     {
         IterRho { list: self, k: NEGATIVE_INFINITY }
     }
 
+    /// Find all extents in a backward direction using the tau-prime primitive
     fn iter_tau_prime(self) -> IterTauPrime<Self>
         where Self: Sized
     {
         IterTauPrime { list: self, k: POSITIVE_INFINITY }
     }
 
+    /// Find all extents in a backward direction using the rho-prime primitive
     fn iter_rho_prime(self) -> IterRhoPrime<Self>
         where Self: Sized
     {
@@ -123,6 +136,8 @@ impl<'a, A: ?Sized> Algebra for &'a A
     fn rho_prime(&self, k: Position) -> Extent { (**self).rho_prime(k) }
 }
 
+/// Iterates over the extent list in the forward direction using the
+/// tau primitive
 #[derive(Debug,Copy,Clone)]
 pub struct IterTau<T> {
     list: T,
@@ -143,6 +158,8 @@ impl<T> Iterator for IterTau<T>
     }
 }
 
+/// Iterates over the extent list in the forward direction using the
+/// rho primitive
 #[derive(Debug,Copy,Clone)]
 pub struct IterRho<T> {
     list: T,
@@ -163,6 +180,8 @@ impl<T> Iterator for IterRho<T>
     }
 }
 
+/// Iterates over the extent list in the backward direction using the
+/// tau-prime primitive
 #[derive(Debug,Copy,Clone)]
 pub struct IterTauPrime<T> {
     list: T,
@@ -183,6 +202,8 @@ impl<T> Iterator for IterTauPrime<T>
     }
 }
 
+/// Iterates over the extent list in the backward direction using the
+/// rho-prime primitive
 #[derive(Debug,Copy,Clone)]
 pub struct IterRhoPrime<T> {
     list: T,

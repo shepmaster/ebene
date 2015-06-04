@@ -59,7 +59,7 @@ const END_EXTENT: Extent = (POSITIVE_INFINITY, POSITIVE_INFINITY);
 #[allow(unused_variables)]
 pub trait Algebra {
     /// The first extent starting at or after the position k.
-    fn tau(&self, k: Position) -> Extent { unimplemented!() }
+    fn tau(&self, k: Position) -> Extent;
 
     /// The last extent ending at or before the position k.
     ///
@@ -67,10 +67,10 @@ pub trait Algebra {
     /// line. We are interested in the *first* number we arrive at
     /// (the end of the extent). We take the *first* extent that
     /// passes the criteria (the last extent in order).
-    fn tau_prime(&self, k: Position) -> Extent { unimplemented!() }
+    fn tau_prime(&self, k: Position) -> Extent;
 
     /// The first extent ending at or after the position k.
-    fn rho(&self, k: Position) -> Extent { unimplemented!() }
+    fn rho(&self, k: Position) -> Extent;
 
     /// The last extent starting at or before the position k.
     ///
@@ -78,7 +78,7 @@ pub trait Algebra {
     /// line. We are interested in the *second* number we arrive at
     /// (the start of the extent). We take the *first* extent that
     /// passes the criteria (the last extent in order).
-    fn rho_prime(&self, k: Position) -> Extent { unimplemented!() }
+    fn rho_prime(&self, k: Position) -> Extent;
 
     fn iter_tau(self) -> IterTau<Self>
         where Self: Sized

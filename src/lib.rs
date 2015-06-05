@@ -1,16 +1,20 @@
 use std::u64;
 use std::cmp::{min,max};
+use Position::*;
 
-pub type Position = u64;
-const EPSILON: Position = 1;
-const NEGATIVE_INFINITY: Position = u64::MIN;
-const POSITIVE_INFINITY: Position = u64::MAX;
+#[derive(Debug,Copy,Clone,PartialEq,Eq,PartialOrd,Ord)]
+pub enum Position {
+    NegativeInfinity,
+    Valid(u64),
+    PositiveInfinity,
+}
 
-/// Infinite values stay infinite when you add non-infinite values to
-/// them.
-///
-/// NEGATIVE_INFINITY +/- EPSILON -> NEGATIVE_INFINITY
-/// POSITIVE_INFINITY +/- EPSILON -> POSITIVE_INFINITY
+impl From<u64> for Position {
+    fn from(v: u64) -> Position {
+        Valid(v)
+    }
+}
+
 trait Epsilon {
     fn increment(self) -> Self;
     fn decrement(self) -> Self;
@@ -19,24 +23,53 @@ trait Epsilon {
 impl Epsilon for Position {
     fn increment(self) -> Self {
         match self {
-            x if x == NEGATIVE_INFINITY => self,
-            x if x == POSITIVE_INFINITY => self,
-            _ => self + EPSILON,
+            NegativeInfinity |
+            PositiveInfinity => self,
+            Valid(x) if x == u64::MAX => PositiveInfinity,
+            Valid(x) => Valid(x + 1),
         }
     }
 
     fn decrement(self) -> Self {
         match self {
-            x if x == NEGATIVE_INFINITY => self,
-            x if x == POSITIVE_INFINITY => self,
-            _ => self - EPSILON,
+            NegativeInfinity |
+            PositiveInfinity => self,
+            Valid(x) if x == u64::MIN => NegativeInfinity,
+            Valid(x) => Valid(x - 1),
         }
     }
 }
 
-pub type Extent = (Position, Position);
-const START_EXTENT: Extent = (NEGATIVE_INFINITY, NEGATIVE_INFINITY);
-const END_EXTENT: Extent = (POSITIVE_INFINITY, POSITIVE_INFINITY);
+pub type ValidExtent = (u64, u64);
+
+#[derive(Debug,Copy,Clone,PartialEq)]
+pub struct Extent(pub Position, pub Position);
+const START_EXTENT: Extent = Extent(NegativeInfinity, NegativeInfinity);
+const END_EXTENT: Extent = Extent(PositiveInfinity, PositiveInfinity);
+
+impl Extent {
+    fn unwrap(self) -> ValidExtent {
+        match self {
+            Extent(Valid(a), Valid(b)) => (a, b),
+            _ => panic!("Extent was not valid: {:?}", self),
+        }
+    }
+}
+
+impl PartialEq<ValidExtent> for Extent {
+    fn eq(&self, other: &ValidExtent) -> bool {
+        match *self {
+            Extent(Valid(a), Valid(b)) => (a, b) == *other,
+            _ => false,
+        }
+    }
+}
+
+impl From<ValidExtent> for Extent {
+    fn from(v: ValidExtent) -> Extent {
+        Extent(v.0.into(), v.1.into())
+    }
+}
 
 /// The basic query algebra from the [Clarke *et al.* paper][paper]
 ///
@@ -93,28 +126,28 @@ pub trait Algebra {
     fn iter_tau(self) -> IterTau<Self>
         where Self: Sized
     {
-        IterTau { list: self, k: NEGATIVE_INFINITY }
+        IterTau { list: self, k: NegativeInfinity }
     }
 
     /// Find all extents in a forward direction using the rho primitive
     fn iter_rho(self) -> IterRho<Self>
         where Self: Sized
     {
-        IterRho { list: self, k: NEGATIVE_INFINITY }
+        IterRho { list: self, k: NegativeInfinity }
     }
 
     /// Find all extents in a backward direction using the tau-prime primitive
     fn iter_tau_prime(self) -> IterTauPrime<Self>
         where Self: Sized
     {
-        IterTauPrime { list: self, k: POSITIVE_INFINITY }
+        IterTauPrime { list: self, k: PositiveInfinity }
     }
 
     /// Find all extents in a backward direction using the rho-prime primitive
     fn iter_rho_prime(self) -> IterRhoPrime<Self>
         where Self: Sized
     {
-        IterRhoPrime { list: self, k: POSITIVE_INFINITY }
+        IterRhoPrime { list: self, k: PositiveInfinity }
     }
 }
 
@@ -147,14 +180,14 @@ pub struct IterTau<T> {
 impl<T> Iterator for IterTau<T>
     where T: Algebra,
 {
-    type Item = Extent;
-    fn next(&mut self) -> Option<Extent> {
-        let (p, q) = self.list.tau(self.k);
-        if p == POSITIVE_INFINITY { return None }
+    type Item = ValidExtent;
+    fn next(&mut self) -> Option<ValidExtent> {
+        let Extent(p, q) = self.list.tau(self.k);
+        if p == PositiveInfinity { return None }
 
         debug_assert!(self.k < p.increment());
         self.k = p.increment();
-        Some((p, q))
+        Some(Extent(p, q).unwrap())
     }
 }
 
@@ -169,14 +202,14 @@ pub struct IterRho<T> {
 impl<T> Iterator for IterRho<T>
     where T: Algebra,
 {
-    type Item = Extent;
-    fn next(&mut self) -> Option<Extent> {
-        let (p, q) = self.list.rho(self.k);
-        if q == POSITIVE_INFINITY { return None }
+    type Item = ValidExtent;
+    fn next(&mut self) -> Option<ValidExtent> {
+        let Extent(p, q) = self.list.rho(self.k);
+        if q == PositiveInfinity { return None }
 
         debug_assert!(self.k < q.increment());
         self.k = q.increment();
-        Some((p, q))
+        Some(Extent(p, q).unwrap())
     }
 }
 
@@ -191,14 +224,14 @@ pub struct IterTauPrime<T> {
 impl<T> Iterator for IterTauPrime<T>
     where T: Algebra,
 {
-    type Item = Extent;
-    fn next(&mut self) -> Option<Extent> {
-        let (p, q) = self.list.tau_prime(self.k);
-        if q == NEGATIVE_INFINITY { return None }
+    type Item = ValidExtent;
+    fn next(&mut self) -> Option<ValidExtent> {
+        let Extent(p, q) = self.list.tau_prime(self.k);
+        if q == NegativeInfinity { return None }
 
         debug_assert!(self.k > q.decrement());
         self.k = q.decrement();
-        Some((p, q))
+        Some(Extent(p, q).unwrap())
     }
 }
 
@@ -213,64 +246,83 @@ pub struct IterRhoPrime<T> {
 impl<T> Iterator for IterRhoPrime<T>
     where T: Algebra,
 {
-    type Item = Extent;
-    fn next(&mut self) -> Option<Extent> {
-        let (p, q) = self.list.rho_prime(self.k);
-        if p == NEGATIVE_INFINITY { return None }
+    type Item = ValidExtent;
+    fn next(&mut self) -> Option<ValidExtent> {
+        let Extent(p, q) = self.list.rho_prime(self.k);
+        if p == NegativeInfinity { return None }
 
         debug_assert!(self.k > p.decrement());
         self.k = p.decrement();
-        Some((p, q))
+        Some(Extent(p, q).unwrap())
     }
 }
 
 macro_rules! check_forwards {
-    ($k:expr) => { if $k == POSITIVE_INFINITY { return END_EXTENT } };
+    ($k:expr) => { if $k == PositiveInfinity { return END_EXTENT; } };
 }
 
 macro_rules! check_backwards {
-    ($k:expr) => { if $k == NEGATIVE_INFINITY { return START_EXTENT } };
+    ($k:expr) => { if $k == NegativeInfinity { return START_EXTENT; } };
+}
+
+macro_rules! check_and_unwrap_forwards {
+    ($k:expr) => {
+        match $k {
+            NegativeInfinity => u64::MIN,
+            Valid(x) => x,
+            PositiveInfinity => return END_EXTENT,
+        }
+    }
+}
+
+macro_rules! check_and_unwrap_backwards {
+    ($k:expr) => {
+        match $k {
+            NegativeInfinity => return START_EXTENT,
+            Valid(x) => x,
+            PositiveInfinity => u64::MAX,
+        }
+    }
 }
 
 // TODO: Investigate `get_unchecked` as we know the idx is valid.
-impl Algebra for [Extent] {
+impl Algebra for [ValidExtent] {
     fn tau(&self, k: Position) -> Extent {
-        check_forwards!(k);
+        let k = check_and_unwrap_forwards!(k);
         match self.binary_search_by(|ex| ex.0.cmp(&k)) {
-            Ok(idx) => self[idx],
-            Err(idx) if idx != self.len() => self[idx],
+            Ok(idx) => self[idx].into(),
+            Err(idx) if idx != self.len() => self[idx].into(),
             Err(..) => END_EXTENT,
         }
     }
 
     // TODO: test
     fn tau_prime(&self, k: Position) -> Extent {
-        check_backwards!(k);
+        let k = check_and_unwrap_backwards!(k);
         match self.binary_search_by(|ex| ex.1.cmp(&k)) {
-            Ok(idx) => self[idx],
-            Err(idx) if idx != 0 => self[idx - 1],
+            Ok(idx) => self[idx].into(),
+            Err(idx) if idx != 0 => self[idx - 1].into(),
             Err(..) => START_EXTENT,
         }
     }
 
     fn rho(&self, k: Position) -> Extent {
-        check_forwards!(k);
+        let k = check_and_unwrap_forwards!(k);
         match self.binary_search_by(|ex| ex.1.cmp(&k)) {
-            Ok(idx) => self[idx],
-            Err(idx) if idx != self.len() => self[idx],
+            Ok(idx) => self[idx].into(),
+            Err(idx) if idx != self.len() => self[idx].into(),
             Err(..) => END_EXTENT,
         }
     }
 
     // TODO: test
     fn rho_prime(&self, k: Position) -> Extent {
-        check_backwards!(k);
+        let k = check_and_unwrap_backwards!(k);
         match self.binary_search_by(|ex| ex.0.cmp(&k)) {
-            Ok(idx) => self[idx],
-            Err(idx) if idx != 0 => self[idx - 1],
+            Ok(idx) => self[idx].into(),
+            Err(idx) if idx != 0 => self[idx - 1].into(),
             Err(..) => START_EXTENT,
         }
-
     }
 }
 
@@ -304,11 +356,11 @@ impl<A, B> Algebra for ContainedIn<A, B>
         loop {
             check_forwards!(k);
 
-            let (p0, q0) = self.a.tau(k);
-            let (p1, _)  = self.b.rho(q0);
+            let Extent(p0, q0) = self.a.tau(k);
+            let Extent(p1, _)  = self.b.rho(q0);
 
             if p1 <= p0 {
-                return (p0, q0);
+                return Extent(p0, q0);
             } else {
                 // iteration instead of recursion
                 k = p1;
@@ -322,11 +374,11 @@ impl<A, B> Algebra for ContainedIn<A, B>
         loop {
             check_backwards!(k);
 
-            let (p0, q0) = self.a.tau_prime(k);
-            let (_,  q1) = self.b.rho_prime(p0);
+            let Extent(p0, q0) = self.a.tau_prime(k);
+            let Extent(_,  q1) = self.b.rho_prime(p0);
 
             if q1 >= q0 {
-                return (p0, q0);
+                return Extent(p0, q0);
             } else {
                 // iteration instead of recursion
                 k = q1;
@@ -337,14 +389,14 @@ impl<A, B> Algebra for ContainedIn<A, B>
     fn rho(&self, k: Position) -> Extent {
         check_forwards!(k);
 
-        let (p, _) = self.a.rho(k);
+        let Extent(p, _) = self.a.rho(k);
         self.tau(p)
     }
 
     fn rho_prime(&self, k: Position) -> Extent {
         check_backwards!(k);
 
-        let (_, q) = self.a.rho_prime(k);
+        let Extent(_, q) = self.a.rho_prime(k);
         self.tau_prime(q)
     }
 }
@@ -375,13 +427,13 @@ impl<A, B> Algebra for Containing<A, B>
 {
     fn tau(&self, k: Position) -> Extent {
         check_forwards!(k);
-        let (_, q) = self.a.tau(k);
+        let Extent(_, q) = self.a.tau(k);
         self.rho(q)
     }
 
     fn tau_prime(&self, k: Position) -> Extent {
         check_backwards!(k);
-        let (p, _) = self.a.tau_prime(k);
+        let Extent(p, _) = self.a.tau_prime(k);
         self.rho_prime(p)
     }
 
@@ -391,11 +443,11 @@ impl<A, B> Algebra for Containing<A, B>
         loop {
             check_forwards!(k);
 
-            let (p0, q0) = self.a.rho(k);
-            let (_,  q1) = self.b.tau(p0);
+            let Extent(p0, q0) = self.a.rho(k);
+            let Extent(_,  q1) = self.b.tau(p0);
 
             if q1 <= q0 {
-                return (p0, q0);
+                return Extent(p0, q0);
             } else {
                 // iteration instead of recursion
                 k = q1;
@@ -409,11 +461,11 @@ impl<A, B> Algebra for Containing<A, B>
         loop {
             check_backwards!(k);
 
-            let (p0, q0) = self.a.rho_prime(k);
-            let (p1, _)  = self.b.tau_prime(q0);
+            let Extent(p0, q0) = self.a.rho_prime(k);
+            let Extent(p1, _)  = self.b.tau_prime(q0);
 
             if p1 >= p0 {
-                return (p0, q0);
+                return Extent(p0, q0);
             } else {
                 // iteration instead of recursion
                 k = p1;
@@ -444,11 +496,11 @@ impl<A, B> Algebra for NotContainedIn<A, B>
 {
     fn tau(&self, k: Position) -> Extent {
         check_forwards!(k);
-        let (p0, q0) = self.a.tau(k);
-        let (p1, q1) = self.b.rho(q0);
+        let Extent(p0, q0) = self.a.tau(k);
+        let Extent(p1, q1) = self.b.rho(q0);
 
         if p1 > p0 {
-            (p0, q0)
+            Extent(p0, q0)
         } else {
             // TODO: prevent recursion?
             self.rho(q1.increment())
@@ -457,11 +509,11 @@ impl<A, B> Algebra for NotContainedIn<A, B>
 
     fn tau_prime(&self, k: Position) -> Extent {
         check_backwards!(k);
-        let (p0, q0) = self.a.tau_prime(k);
-        let (p1, q1) = self.b.rho_prime(p0);
+        let Extent(p0, q0) = self.a.tau_prime(k);
+        let Extent(p1, q1) = self.b.rho_prime(p0);
 
         if q1 < q0 {
-            (p0, q0)
+            Extent(p0, q0)
         } else {
             // TODO: prevent recursion?
             self.rho_prime(p1.decrement())
@@ -471,14 +523,14 @@ impl<A, B> Algebra for NotContainedIn<A, B>
     fn rho(&self, k: Position) -> Extent {
         check_forwards!(k);
 
-        let (p, _) = self.a.rho(k);
+        let Extent(p, _) = self.a.rho(k);
         self.tau(p)
     }
 
     fn rho_prime(&self, k: Position) -> Extent {
         check_backwards!(k);
 
-        let (_, q) = self.a.rho_prime(k);
+        let Extent(_, q) = self.a.rho_prime(k);
         self.tau_prime(q)
     }
 }
@@ -506,25 +558,25 @@ impl<A, B> Algebra for NotContaining<A, B>
     fn tau(&self, k: Position) -> Extent {
         check_forwards!(k);
 
-        let (_, q) = self.a.tau(k);
+        let Extent(_, q) = self.a.tau(k);
         self.rho(q)
     }
 
     fn tau_prime(&self, k: Position) -> Extent {
         check_backwards!(k);
 
-        let (p, _) = self.a.tau_prime(k);
+        let Extent(p, _) = self.a.tau_prime(k);
         self.rho_prime(p)
     }
 
     fn rho(&self, k: Position) -> Extent {
         check_forwards!(k);
 
-        let (p0, q0) = self.a.rho(k);
-        let (p1, q1) = self.b.tau(p0);
+        let Extent(p0, q0) = self.a.rho(k);
+        let Extent(p1, q1) = self.b.tau(p0);
 
         if q1 > q0 {
-            (p0, q0)
+            Extent(p0, q0)
         } else {
             // TODO: prevent recursion?
             self.tau(p1.increment())
@@ -534,11 +586,11 @@ impl<A, B> Algebra for NotContaining<A, B>
     fn rho_prime(&self, k: Position) -> Extent {
         check_backwards!(k);
 
-        let (p0, q0) = self.a.rho_prime(k);
-        let (p1, q1) = self.b.tau_prime(q0);
+        let Extent(p0, q0) = self.a.rho_prime(k);
+        let Extent(p1, q1) = self.b.tau_prime(q0);
 
         if p1 < p0 {
-            (p0, q0)
+            Extent(p0, q0)
         } else {
             // TODO: prevent recursion?
            self.tau_prime(q1.decrement())
@@ -572,47 +624,47 @@ impl<A, B> Algebra for BothOf<A, B>
         check_forwards!(k);
 
         // Find the farthest end of the next extents
-        let (_, q0) = self.a.tau(k);
-        let (_, q1) = self.b.tau(k);
+        let Extent(_, q0) = self.a.tau(k);
+        let Extent(_, q1) = self.b.tau(k);
         let max_q01 = max(q0, q1);
 
         // This line does not match the paper
         check_forwards!(max_q01);
 
         // Find the extents prior to that point
-        let (p2, q2) = self.a.tau_prime(max_q01);
-        let (p3, q3) = self.b.tau_prime(max_q01);
+        let Extent(p2, q2) = self.a.tau_prime(max_q01);
+        let Extent(p3, q3) = self.b.tau_prime(max_q01);
 
         // Create a new extent that encompasses both preceeding extents
-        (min(p2, p3), max(q2, q3))
+        Extent(min(p2, p3), max(q2, q3))
     }
 
     fn tau_prime(&self, k: Position) -> Extent {
         check_backwards!(k);
 
-        let (p0, _) = self.a.tau_prime(k);
-        let (p1, _) = self.b.tau_prime(k);
+        let Extent(p0, _) = self.a.tau_prime(k);
+        let Extent(p1, _) = self.b.tau_prime(k);
         let min_p01 = min(p0, p1);
 
         check_backwards!(min_p01);
 
-        let (p2, q2) = self.a.tau(min_p01);
-        let (p3, q3) = self.b.tau(min_p01);
+        let Extent(p2, q2) = self.a.tau(min_p01);
+        let Extent(p3, q3) = self.b.tau(min_p01);
 
-        (min(p2, p3), max(q2, q3))
+        Extent(min(p2, p3), max(q2, q3))
     }
 
     fn rho(&self, k: Position) -> Extent {
         check_forwards!(k);
 
-        let (p, _) = self.tau_prime(k.decrement());
+        let Extent(p, _) = self.tau_prime(k.decrement());
         self.tau(p.increment())
     }
 
     fn rho_prime(&self, k: Position) -> Extent {
         check_backwards!(k);
 
-        let (_, q) = self.tau(k.increment());
+        let Extent(_, q) = self.tau(k.increment());
         self.tau_prime(q.decrement())
     }
 }
@@ -661,19 +713,19 @@ impl<A, B> Algebra for OneOf<A, B>
         check_forwards!(k);
 
         // Find the extents after the point
-        let (p0, q0) = self.a.tau(k);
-        let (p1, q1) = self.b.tau(k);
+        let Extent(p0, q0) = self.a.tau(k);
+        let Extent(p1, q1) = self.b.tau(k);
 
         // TODO: use Ordering
 
         // Take the one that ends first, using the smaller extent in
         // case of ties
         if q0 < q1 {
-            (p0, q0)
+            Extent(p0, q0)
         } else if q0 > q1 {
-            (p1, q1)
+            Extent(p1, q1)
         } else {
-            (max(p0, p1), q0)
+            Extent(max(p0, p1), q0)
         }
     }
 
@@ -681,43 +733,43 @@ impl<A, B> Algebra for OneOf<A, B>
         check_backwards!(k);
 
         // Find the extents after the point
-        let (p0, q0) = self.a.tau_prime(k);
-        let (p1, q1) = self.b.tau_prime(k);
+        let Extent(p0, q0) = self.a.tau_prime(k);
+        let Extent(p1, q1) = self.b.tau_prime(k);
 
         // TODO: use Ordering
 
         // Take the one that ends first, using the smaller extent in
         // case of ties
         if p0 > p1 {
-            (p0, q0)
+            Extent(p0, q0)
         } else if p0 < p1 {
-            (p1, q1)
+            Extent(p1, q1)
         } else {
-            (p0, min(q0, q1))
+            Extent(p0, min(q0, q1))
         }
     }
 
     fn rho(&self, k: Position) -> Extent {
         check_forwards!(k);
 
-        let (p, q) = self.tau_prime(k);
-        if q.increment() > k { return (p, q) }
+        let Extent(p, q) = self.tau_prime(k);
+        if q.increment() > k { return Extent(p, q) }
 
         loop {
-            let (p, q) = self.tau(p.increment());
-            if q >= k {return (p, q) }
+            let Extent(p, q) = self.tau(p.increment());
+            if q >= k { return Extent(p, q) }
         }
     }
 
     fn rho_prime(&self, k: Position) -> Extent {
         check_backwards!(k);
 
-        let (p, q) = self.tau(k);
-        if p.decrement() < k { return (p, q) }
+        let Extent(p, q) = self.tau(k);
+        if p.decrement() < k { return Extent(p, q) }
 
         loop {
-            let (p, q) = self.tau_prime(q.decrement());
-            if p <= k { return (p, q) }
+            let Extent(p, q) = self.tau_prime(q.decrement());
+            if p <= k { return Extent(p, q) }
         }
     }
 }
@@ -756,40 +808,40 @@ impl<A, B> Algebra for FollowedBy<A, B>
         check_forwards!(k);
 
         // Find the first extent in A at or after the point
-        let (_, q0) = self.a.tau(k);
+        let Extent(_, q0) = self.a.tau(k);
 
         // Find the first extent in B at or after the first extent
-        let (p1, q1) = self.b.tau(q0.increment());
+        let Extent(p1, q1) = self.b.tau(q0.increment());
         check_forwards!(q1);
 
         // Find the closest extent in A that is before the extent from B
-        let (p2, _) = self.a.tau_prime(p1.decrement());
-        (p2, q1)
+        let Extent(p2, _) = self.a.tau_prime(p1.decrement());
+        Extent(p2, q1)
     }
 
     fn tau_prime(&self, k: Position) -> Extent {
         check_backwards!(k);
 
-        let (p0, _) = self.b.tau_prime(k);
+        let Extent(p0, _) = self.b.tau_prime(k);
 
-        let (p1, q1) = self.a.tau_prime(p0.decrement());
+        let Extent(p1, q1) = self.a.tau_prime(p0.decrement());
         check_backwards!(p1);
 
-        let (_, q2) = self.b.tau(q1.increment());
-        (p1, q2)
+        let Extent(_, q2) = self.b.tau(q1.increment());
+        Extent(p1, q2)
     }
 
     fn rho(&self, k: Position) -> Extent {
         check_forwards!(k);
 
-        let (p, _) = self.tau_prime(k.decrement());
+        let Extent(p, _) = self.tau_prime(k.decrement());
         self.tau(p.increment())
     }
 
     fn rho_prime(&self, k: Position) -> Extent {
         check_backwards!(k);
 
-        let (_, q) = self.tau(k.increment());
+        let Extent(_, q) = self.tau(k.increment());
         self.tau_prime(q.decrement())
     }
 }
@@ -806,21 +858,33 @@ mod test {
     use super::*;
     use super::END_EXTENT;
 
-    fn find_invalid_gc_list_pair(extents: &[Extent]) -> Option<(Extent, Extent)> {
+    fn find_invalid_gc_list_pair(extents: &[ValidExtent]) -> Option<(ValidExtent, ValidExtent)> {
         extents
             .windows(2)
             .map(|window| (window[0], window[1]))
             .find(|&(a, b)| b.0 <= a.0 || b.1 <= a.1)
     }
 
-    fn assert_valid_gc_list(extents: &[Extent]) {
+    fn assert_valid_gc_list(extents: &[ValidExtent]) {
         if let Some((a, b)) = find_invalid_gc_list_pair(extents) {
             assert!(false, "{:?} and {:?} are invalid GC-list members", a, b)
         }
     }
 
+    impl Arbitrary for Position {
+        fn arbitrary<G>(g: &mut G) -> Self
+            where G: quickcheck::Gen
+        {
+            match g.gen_range(0, 10) {
+                0 => Position::NegativeInfinity,
+                1 => Position::PositiveInfinity,
+                _ => Position::Valid(Arbitrary::arbitrary(g)),
+            }
+        }
+    }
+
     #[derive(Debug,Clone,PartialEq)]
-    struct RandomExtentList(Vec<Extent>);
+    struct RandomExtentList(Vec<ValidExtent>);
 
     impl Arbitrary for RandomExtentList {
         fn arbitrary<G>(g: &mut G) -> Self
@@ -852,7 +916,7 @@ mod test {
 
     /// A simplistic shrinking strategy that preserves the ordering
     /// guarantee of the extent list
-    struct RandomExtentListShrinker(Vec<Extent>);
+    struct RandomExtentListShrinker(Vec<ValidExtent>);
 
     impl Iterator for RandomExtentListShrinker {
         type Item = RandomExtentList;
@@ -872,7 +936,7 @@ mod test {
         fn rho_prime(&self, k: Position) -> Extent { (&self.0[..]).rho_prime(k) }
     }
 
-    fn all_extents<A>(a: A) -> Vec<Extent>
+    fn all_extents<A>(a: A) -> Vec<ValidExtent>
         where A: Algebra
     {
         a.iter_tau().collect()
@@ -923,39 +987,39 @@ mod test {
     #[test]
     fn extent_list_tau_finds_extents_that_start_at_same_point() {
         let a = &[(1,1), (2,2)][..];
-        assert_eq!(a.tau(1), (1,1));
-        assert_eq!(a.tau(2), (2,2));
+        assert_eq!(a.tau(1.into()), (1,1));
+        assert_eq!(a.tau(2.into()), (2,2));
     }
 
     #[test]
     fn extent_list_tau_finds_first_extent_starting_after_point() {
         let a = &[(3,4)][..];
-        assert_eq!(a.tau(1), (3,4));
+        assert_eq!(a.tau(1.into()), (3,4));
     }
 
     #[test]
     fn extent_list_tau_returns_end_marker_if_no_match() {
         let a = &[(1,3)][..];
-        assert_eq!(a.tau(2), END_EXTENT);
+        assert_eq!(a.tau(2.into()), END_EXTENT);
     }
 
     #[test]
     fn extent_list_rho_finds_extents_that_end_at_same_point() {
         let a = &[(1,1), (2,2)][..];
-        assert_eq!(a.rho(1), (1,1));
-        assert_eq!(a.rho(2), (2,2));
+        assert_eq!(a.rho(1.into()), (1,1));
+        assert_eq!(a.rho(2.into()), (2,2));
     }
 
     #[test]
     fn extent_list_rho_finds_first_extent_ending_after_point() {
         let a = &[(3,4)][..];
-        assert_eq!(a.rho(1), (3,4));
+        assert_eq!(a.rho(1.into()), (3,4));
     }
 
     #[test]
     fn extent_list_rho_returns_end_marker_if_no_match() {
         let a = &[(1,3)][..];
-        assert_eq!(a.rho(4), END_EXTENT);
+        assert_eq!(a.rho(4.into()), END_EXTENT);
     }
 
     #[test]
@@ -992,7 +1056,7 @@ mod test {
         let a = &[(2,3)][..];
         let b = &[(1,4)][..];
         let c = ContainedIn { a: a, b: b };
-        assert_eq!(c.tau(1), (2,3));
+        assert_eq!(c.tau(1.into()), (2,3));
     }
 
     #[test]
@@ -1000,7 +1064,7 @@ mod test {
         let a = &[(2,4)][..];
         let b = &[(1,4)][..];
         let c = ContainedIn { a: a, b: b };
-        assert_eq!(c.tau(1), (2,4));
+        assert_eq!(c.tau(1.into()), (2,4));
     }
 
     #[test]
@@ -1008,7 +1072,7 @@ mod test {
         let a = &[(1,3)][..];
         let b = &[(1,4)][..];
         let c = ContainedIn { a: a, b: b };
-        assert_eq!(c.tau(1), (1,3));
+        assert_eq!(c.tau(1.into()), (1,3));
     }
 
     #[test]
@@ -1016,7 +1080,7 @@ mod test {
         let a = &[(1,4)][..];
         let b = &[(1,4)][..];
         let c = ContainedIn { a: a, b: b };
-        assert_eq!(c.tau(1), (1,4));
+        assert_eq!(c.tau(1.into()), (1,4));
     }
 
     #[test]
@@ -1024,7 +1088,7 @@ mod test {
         let a = &[(1,3)][..];
         let b = &[(2,4)][..];
         let c = ContainedIn { a: a, b: b };
-        assert_eq!(c.tau(1), END_EXTENT);
+        assert_eq!(c.tau(1.into()), END_EXTENT);
     }
 
     #[test]
@@ -1032,7 +1096,7 @@ mod test {
         let a = &[(2,5)][..];
         let b = &[(1,4)][..];
         let c = ContainedIn { a: a, b: b };
-        assert_eq!(c.tau(1), END_EXTENT);
+        assert_eq!(c.tau(1.into()), END_EXTENT);
     }
 
     #[test]
@@ -1069,7 +1133,7 @@ mod test {
         let a = &[(1,4)][..];
         let b = &[(2,3)][..];
         let c = Containing { a: a, b: b };
-        assert_eq!(c.tau(1), (1,4));
+        assert_eq!(c.tau(1.into()), (1,4));
     }
 
     #[test]
@@ -1077,7 +1141,7 @@ mod test {
         let a = &[(1,4)][..];
         let b = &[(2,4)][..];
         let c = Containing { a: a, b: b };
-        assert_eq!(c.tau(1), (1,4));
+        assert_eq!(c.tau(1.into()), (1,4));
     }
 
     #[test]
@@ -1085,7 +1149,7 @@ mod test {
         let a = &[(1,4)][..];
         let b = &[(1,3)][..];
         let c = Containing { a: a, b: b };
-        assert_eq!(c.tau(1), (1,4));
+        assert_eq!(c.tau(1.into()), (1,4));
     }
 
     #[test]
@@ -1093,7 +1157,7 @@ mod test {
         let a = &[(1,4)][..];
         let b = &[(1,4)][..];
         let c = Containing { a: a, b: b };
-        assert_eq!(c.tau(1), (1,4));
+        assert_eq!(c.tau(1.into()), (1,4));
     }
 
     #[test]
@@ -1101,7 +1165,7 @@ mod test {
         let a = &[(2,4)][..];
         let b = &[(1,3)][..];
         let c = Containing { a: a, b: b };
-        assert_eq!(c.tau(1), END_EXTENT);
+        assert_eq!(c.tau(1.into()), END_EXTENT);
     }
 
     #[test]
@@ -1109,7 +1173,7 @@ mod test {
         let a = &[(1,4)][..];
         let b = &[(2,5)][..];
         let c = Containing { a: a, b: b };
-        assert_eq!(c.tau(1), END_EXTENT);
+        assert_eq!(c.tau(1.into()), END_EXTENT);
     }
 
     #[test]
@@ -1146,7 +1210,7 @@ mod test {
         let a = &[(2,3)][..];
         let b = &[(1,4)][..];
         let c = NotContainedIn { a: a, b: b };
-        assert_eq!(c.tau(1), END_EXTENT);
+        assert_eq!(c.tau(1.into()), END_EXTENT);
     }
 
     #[test]
@@ -1154,7 +1218,7 @@ mod test {
         let a = &[(2,4)][..];
         let b = &[(1,4)][..];
         let c = NotContainedIn { a: a, b: b };
-        assert_eq!(c.tau(1), END_EXTENT);
+        assert_eq!(c.tau(1.into()), END_EXTENT);
     }
 
     #[test]
@@ -1162,7 +1226,7 @@ mod test {
         let a = &[(1,3)][..];
         let b = &[(1,4)][..];
         let c = NotContainedIn { a: a, b: b };
-        assert_eq!(c.tau(1), END_EXTENT);
+        assert_eq!(c.tau(1.into()), END_EXTENT);
     }
 
     #[test]
@@ -1170,7 +1234,7 @@ mod test {
         let a = &[(1,4)][..];
         let b = &[(1,4)][..];
         let c = NotContainedIn { a: a, b: b };
-        assert_eq!(c.tau(1), END_EXTENT);
+        assert_eq!(c.tau(1.into()), END_EXTENT);
     }
 
     #[test]
@@ -1178,7 +1242,7 @@ mod test {
         let a = &[(1,3)][..];
         let b = &[(2,4)][..];
         let c = NotContainedIn { a: a, b: b };
-        assert_eq!(c.tau(1), (1,3));
+        assert_eq!(c.tau(1.into()), (1,3));
     }
 
     #[test]
@@ -1186,7 +1250,7 @@ mod test {
         let a = &[(2,5)][..];
         let b = &[(1,4)][..];
         let c = NotContainedIn { a: a, b: b };
-        assert_eq!(c.tau(1), (2,5));
+        assert_eq!(c.tau(1.into()), (2,5));
     }
 
     #[test]
@@ -1223,7 +1287,7 @@ mod test {
         let a = &[(1,4)][..];
         let b = &[(2,3)][..];
         let c = NotContaining { a: a, b: b };
-        assert_eq!(c.tau(1), END_EXTENT);
+        assert_eq!(c.tau(1.into()), END_EXTENT);
     }
 
     #[test]
@@ -1231,7 +1295,7 @@ mod test {
         let a = &[(1,4)][..];
         let b = &[(2,4)][..];
         let c = NotContaining { a: a, b: b };
-        assert_eq!(c.tau(1), END_EXTENT);
+        assert_eq!(c.tau(1.into()), END_EXTENT);
     }
 
     #[test]
@@ -1239,7 +1303,7 @@ mod test {
         let a = &[(1,4)][..];
         let b = &[(1,3)][..];
         let c = NotContaining { a: a, b: b };
-        assert_eq!(c.tau(1), END_EXTENT);
+        assert_eq!(c.tau(1.into()), END_EXTENT);
     }
 
     #[test]
@@ -1247,7 +1311,7 @@ mod test {
         let a = &[(1,4)][..];
         let b = &[(1,4)][..];
         let c = NotContaining { a: a, b: b };
-        assert_eq!(c.tau(1), END_EXTENT);
+        assert_eq!(c.tau(1.into()), END_EXTENT);
     }
 
     #[test]
@@ -1255,7 +1319,7 @@ mod test {
         let a = &[(2,4)][..];
         let b = &[(1,3)][..];
         let c = NotContaining { a: a, b: b };
-        assert_eq!(c.tau(1), (2,4));
+        assert_eq!(c.tau(1.into()), (2,4));
     }
 
     #[test]
@@ -1263,7 +1327,7 @@ mod test {
         let a = &[(1,4)][..];
         let b = &[(2,5)][..];
         let c = NotContaining { a: a, b: b };
-        assert_eq!(c.tau(1), (1,4));
+        assert_eq!(c.tau(1.into()), (1,4));
     }
 
     #[test]
@@ -1381,7 +1445,7 @@ mod test {
         let a = &[(1,2)][..];
         let b = &[(3,4)][..];
         let c = BothOf { a: a, b: b };
-        assert_eq!(c.tau(1), (1,4));
+        assert_eq!(c.tau(1.into()), (1,4));
     }
 
     #[test]
@@ -1389,7 +1453,7 @@ mod test {
         let a = &[(1,2)][..];
         let b = &[(3,4)][..];
         let c = BothOf { a: a, b: b };
-        assert_eq!(c.tau(5), END_EXTENT);
+        assert_eq!(c.tau(5.into()), END_EXTENT);
     }
 
     #[test]
@@ -1501,10 +1565,10 @@ mod test {
         let b = &[(1, 2)][..];
         let c = OneOf { a: &a, b: &b };
 
-        assert_eq!(c.rho(0), (1,2));
-        assert_eq!(c.rho(1), (1,2));
-        assert_eq!(c.rho(2), (1,2));
-        assert_eq!(c.rho(3), END_EXTENT);
+        assert_eq!(c.rho(0.into()), (1,2));
+        assert_eq!(c.rho(1.into()), (1,2));
+        assert_eq!(c.rho(2.into()), (1,2));
+        assert_eq!(c.rho(3.into()), END_EXTENT);
     }
 
     #[test]
@@ -1513,11 +1577,11 @@ mod test {
         let b = &[(1, 5)][..];
         let c = OneOf { a: &a, b: &b };
 
-        assert_eq!(c.rho(0), (2,3));
-        assert_eq!(c.rho(1), (2,3));
-        assert_eq!(c.rho(2), (2,3));
-        assert_eq!(c.rho(3), (2,3));
-        assert_eq!(c.rho(4), END_EXTENT);
+        assert_eq!(c.rho(0.into()), (2,3));
+        assert_eq!(c.rho(1.into()), (2,3));
+        assert_eq!(c.rho(2.into()), (2,3));
+        assert_eq!(c.rho(3.into()), (2,3));
+        assert_eq!(c.rho(4.into()), END_EXTENT);
     }
 
     #[test]
@@ -1526,7 +1590,7 @@ mod test {
         let b = &[(2, 3), (6, 7)][..];
         let c = OneOf { a: &a, b: &b };
 
-        assert_eq!(c.rho(4), (6, 7));
+        assert_eq!(c.rho(4.into()), (6, 7));
     }
 
     #[test]
@@ -1535,7 +1599,7 @@ mod test {
         let b = &[(3, 6)][..];
         let c = OneOf { a: &a, b: &b };
 
-        assert_eq!(c.rho(4), (1, 4));
+        assert_eq!(c.rho(4.into()), (1, 4));
     }
 
     #[test]
@@ -1544,7 +1608,7 @@ mod test {
         let b = &[(9, 60), (11, 136)][..];
         let c = OneOf { a: &a, b: &b };
 
-        assert_eq!(c.rho(12), (9, 60));
+        assert_eq!(c.rho(12.into()), (9, 60));
     }
 
     #[test]

@@ -3,6 +3,11 @@ name = "strata"
 version = "0.1.0"
 authors = ["Jake Goulding <jake.goulding@gmail.com>"]
 
+[dependencies]
+itertools = "*"
+rustc-serialize = "*"
+punkt = "*"
+
 [dev-dependencies]
 rand = "*"
 quickcheck = "*"

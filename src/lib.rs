@@ -326,6 +326,16 @@ impl Algebra for [ValidExtent] {
     }
 }
 
+/// Finds no extents
+pub struct Empty;
+
+impl Algebra for Empty {
+    fn tau(&self, _: Position)       -> Extent { END_EXTENT }
+    fn tau_prime(&self, _: Position) -> Extent { START_EXTENT }
+    fn rho(&self, _: Position)       -> Extent { END_EXTENT }
+    fn rho_prime(&self, _: Position) -> Extent { START_EXTENT }
+}
+
 /// Finds extents from the first list that are contained in extents
 /// from the second list.
 ///

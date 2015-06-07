@@ -1737,13 +1737,14 @@ mod test {
                 let a: ArbitraryAlgebraTree = Arbitrary::arbitrary(&mut inner_gen);
                 let b: ArbitraryAlgebraTree = Arbitrary::arbitrary(&mut inner_gen);
 
-                let c: Box<QuickcheckAlgebra+Send> = match g.gen_range(0, 6) {
+                let c: Box<QuickcheckAlgebra+Send> = match g.gen_range(0, 7) {
                     0 => Box::new(ContainedIn    { a: a, b: b }),
                     1 => Box::new(Containing     { a: a, b: b }),
                     2 => Box::new(NotContainedIn { a: a, b: b }),
                     3 => Box::new(NotContaining  { a: a, b: b }),
                     4 => Box::new(BothOf         { a: a, b: b }),
-                    5 => Box::new(FollowedBy     { a: a, b: b }),
+                    5 => Box::new(OneOf          { a: a, b: b }),
+                    6 => Box::new(FollowedBy     { a: a, b: b }),
                     _ => unreachable!(),
                 };
 

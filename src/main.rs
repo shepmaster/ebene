@@ -179,7 +179,7 @@ fn json_to_query<'a>(json: &Json,
     Ok(op)
 }
 
-fn main() {
+fn index() -> (Vec<String>, HashMap<String, Vec<ValidExtent>>, HashMap<String, Vec<ValidExtent>>) {
     let mut data = Vec::new();
     let mut index = HashMap::new();
     let mut layers = HashMap::new();
@@ -210,6 +210,10 @@ fn main() {
         println!("{}: {:?}", layer, extents);
     }
 
+    (data, index, layers)
+}
+
+fn query_stdin(data: Vec<String>, index: HashMap<String, Vec<ValidExtent>>, layers: HashMap<String, Vec<ValidExtent>>) {
     let stdin = io::stdin();
 
     for line in stdin.lock().lines() {
@@ -228,13 +232,15 @@ fn main() {
             Err(e) => { println!("Error: {}", e); continue },
         };
 
-        // let a = layers.get("sentences").map(|x| &x[..]).unwrap_or(&[][..]);
-        // let b = layers.get("happy").map(|x| &x[..]).unwrap_or(&[][..]);
-
         for extent in op.iter_tau() {
             let ex = (extent.0, extent.1);
             let content = &data[0]; // HACK: 0 isnt right
             println!("{:?}: {}", ex, &content[(ex.0 as usize)..(ex.1 as usize)]);
         }
     }
+}
+
+fn main() {
+    let (data, index, layers) = index();
+    query_stdin(data, index, layers);
 }

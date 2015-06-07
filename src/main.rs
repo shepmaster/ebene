@@ -3,37 +3,16 @@
 extern crate strata;
 extern crate itertools;
 extern crate rustc_serialize;
-extern crate punkt;
 
 use strata::*;
 use itertools::Itertools;
 use rustc_serialize::json::{self, Json};
-use punkt::trainer::{TrainingData, Trainer};
-use punkt::tokenizer::{SentenceTokenizer, WordTokenizer};
 
 use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
-
-#[derive(Debug,Copy,Clone,PartialEq)]
-pub struct ZZZ {
-    doc_id: u32,
-    offset: u32,
-}
-
-impl From<u64> for ZZZ {
-    fn from(v: u64) -> ZZZ {
-        ZZZ { doc_id: (v >> 32) as u32, offset: (v & 0xFFFFFFFF) as u32 }
-    }
-}
-
-impl From<ZZZ> for u64 {
-    fn from(v: ZZZ) -> u64 {
-        (v.doc_id as u64) << 32 | (v.offset as u64)
-    }
-}
 
 #[derive(Debug,Clone,RustcDecodable, RustcEncodable)]
 struct InputDocument {
@@ -77,53 +56,6 @@ fn index_document(content: &str) -> HashMap<String, Vec<ValidExtent>> {
     }
 
     index
-}
-
-fn index_sentences(content: &str) -> Vec<ValidExtent> {
-    let mut sentences = Vec::new();
-    let mut offset = 0;
-
-    let training_data = TrainingData::english();
-
-    for sentence in SentenceTokenizer::new(content, &training_data) {
-        let inner_offset = content[offset..].find(sentence).unwrap();
-        let start = offset + inner_offset;
-        let end = start + sentence.len();
-
-        sentences.push((start as u64, end as u64));
-
-        offset = end;
-    }
-
-    sentences
-}
-
-fn index_lines(content: &str) -> Vec<ValidExtent> {
-    let mut lines = Vec::new();
-    let mut offset = 0;
-
-    for line in content.split("\n") {
-        let start = offset;
-        let end = start + line.len();
-        lines.push((start as u64, end as u64));
-        offset = end + "\n".len();
-    }
-
-    lines
-}
-
-fn index_stanzas(content: &str) -> Vec<ValidExtent> {
-    let mut stanzas = Vec::new();
-    let mut offset = 0;
-
-    for stanza in content.split("\n\n") {
-        let start = offset;
-        let end = start + stanza.len();
-        stanzas.push((start as u64, end as u64));
-        offset = end + "\n\n".len();
-    }
-
-    stanzas
 }
 
 fn json_to_query<'a>(json: &Json,
@@ -185,12 +117,8 @@ fn index() -> (Vec<String>, HashMap<String, Vec<ValidExtent>>, HashMap<String, V
     let mut layers = HashMap::new();
 
     for file in env::args().skip(1) {
-        let mut doc = read_document(&file);
+        let doc = read_document(&file);
         let doc_index = index_document(&doc.text);
-
-        doc.layers.insert("sentence".to_owned(), index_sentences(&doc.text));
-        doc.layers.insert("line".to_owned(), index_lines(&doc.text));
-        doc.layers.insert("stanza".to_owned(), index_stanzas(&doc.text));
 
         data.push(doc.text);
         for (word, extents) in doc_index {

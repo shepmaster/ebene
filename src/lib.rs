@@ -1712,9 +1712,9 @@ mod test {
             fn inner<G>(g: &mut G, size: usize) -> ArbitraryAlgebraTree
                 where G: quickcheck::Gen
             {
-                let generate_node: bool = g.gen();
+                let generate_leaf: bool = g.gen_weighted_bool(10);
 
-                if size == 0 || ! generate_node {
+                if size == 0 || generate_leaf {
                     let extents = RandomExtentList::arbitrary(g);
                     ArbitraryAlgebraTree(Box::new(extents))
                 } else {

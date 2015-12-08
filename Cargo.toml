@@ -9,5 +9,4 @@ rustc-serialize = "*"
 punkt = "*"
 
 [dev-dependencies]
-rand = "*"
 quickcheck = "*"

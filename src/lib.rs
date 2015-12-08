@@ -859,11 +859,9 @@ impl<A, B> Algebra for FollowedBy<A, B>
 #[cfg(test)]
 mod test {
     extern crate quickcheck;
-    extern crate rand;
 
     use std::fmt::Debug;
     use self::quickcheck::{quickcheck,Arbitrary};
-    use self::rand::Rng;
 
     use super::*;
     use super::END_EXTENT;
@@ -1709,30 +1707,37 @@ mod test {
         fn arbitrary<G>(g: &mut G) -> Self
             where G: quickcheck::Gen
         {
-            let generate_node: bool = g.gen();
+            // We need to control the `size` parameter without making
+            // new generators, so we make this little side fucntion.
+            fn inner<G>(g: &mut G, size: usize) -> ArbitraryAlgebraTree
+                where G: quickcheck::Gen
+            {
+                let generate_node: bool = g.gen();
 
-            if g.size() == 0 || ! generate_node {
-                let extents = RandomExtentList::arbitrary(g);
-                ArbitraryAlgebraTree(Box::new(extents))
-            } else {
-                let mut inner_gen = quickcheck::StdGen::new(rand::thread_rng(), g.size() / 2);
+                if size == 0 || ! generate_node {
+                    let extents = RandomExtentList::arbitrary(g);
+                    ArbitraryAlgebraTree(Box::new(extents))
+                } else {
+                    let a = inner(g, size / 2);
+                    let b = inner(g, size / 2);
 
-                let a = ArbitraryAlgebraTree::arbitrary(&mut inner_gen);
-                let b = ArbitraryAlgebraTree::arbitrary(&mut inner_gen);
+                    let c: Box<QuickcheckAlgebra+Send> = match g.gen_range(0, 7) {
+                        0 => Box::new(ContainedIn    { a: a, b: b }),
+                        1 => Box::new(Containing     { a: a, b: b }),
+                        2 => Box::new(NotContainedIn { a: a, b: b }),
+                        3 => Box::new(NotContaining  { a: a, b: b }),
+                        4 => Box::new(BothOf         { a: a, b: b }),
+                        5 => Box::new(OneOf          { a: a, b: b }),
+                        6 => Box::new(FollowedBy     { a: a, b: b }),
+                        _ => unreachable!(),
+                    };
 
-                let c: Box<QuickcheckAlgebra+Send> = match g.gen_range(0, 7) {
-                    0 => Box::new(ContainedIn    { a: a, b: b }),
-                    1 => Box::new(Containing     { a: a, b: b }),
-                    2 => Box::new(NotContainedIn { a: a, b: b }),
-                    3 => Box::new(NotContaining  { a: a, b: b }),
-                    4 => Box::new(BothOf         { a: a, b: b }),
-                    5 => Box::new(OneOf          { a: a, b: b }),
-                    6 => Box::new(FollowedBy     { a: a, b: b }),
-                    _ => unreachable!(),
-                };
-
-                ArbitraryAlgebraTree(c)
+                    ArbitraryAlgebraTree(c)
+                }
             }
+
+            let sz = g.size();
+            inner(g, sz)
         }
     }
 

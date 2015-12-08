@@ -1,5 +1,3 @@
-#![feature(collections)]
-
 extern crate strata;
 extern crate itertools;
 extern crate rustc_serialize;

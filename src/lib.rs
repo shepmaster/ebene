@@ -904,7 +904,7 @@ mod test {
             let mut last_extent = (0, 1);
 
             for _ in 0..g.size() {
-                let start_offset: u64 = Arbitrary::arbitrary(g);
+                let start_offset = u64::arbitrary(g);
                 let new_start = last_extent.0 + 1 + start_offset;
                 let min_width = last_extent.1 - last_extent.0;
                 let max_width = min_width + g.size() as u64;
@@ -1729,13 +1729,13 @@ mod test {
             let generate_node: bool = g.gen();
 
             if g.size() == 0 || ! generate_node {
-                let extents: RandomExtentList = Arbitrary::arbitrary(g);
+                let extents = RandomExtentList::arbitrary(g);
                 ArbitraryAlgebraTree(Box::new(extents))
             } else {
                 let mut inner_gen = quickcheck::StdGen::new(rand::thread_rng(), g.size() / 2);
 
-                let a: ArbitraryAlgebraTree = Arbitrary::arbitrary(&mut inner_gen);
-                let b: ArbitraryAlgebraTree = Arbitrary::arbitrary(&mut inner_gen);
+                let a = ArbitraryAlgebraTree::arbitrary(&mut inner_gen);
+                let b = ArbitraryAlgebraTree::arbitrary(&mut inner_gen);
 
                 let c: Box<QuickcheckAlgebra+Send> = match g.gen_range(0, 7) {
                     0 => Box::new(ContainedIn    { a: a, b: b }),

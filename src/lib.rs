@@ -952,23 +952,6 @@ mod test {
         a.iter_tau().collect()
     }
 
-    fn iter_eq<A, B, T, U>(a: A, b: B) -> bool
-        where A: IntoIterator<Item=T>,
-              B: IntoIterator<Item=U>,
-              T: PartialEq<U>,
-    {
-        let mut a = a.into_iter();
-        let mut b = b.into_iter();
-
-        loop {
-            match (a.next(), b.next()) {
-                (Some(ref a), Some(ref b)) if a == b => continue,
-                (None, None) => return true,
-                _ => return false,
-            }
-        }
-    }
-
     fn any_k<A>(operator: A, k: Position) -> bool
         where A: Algebra + Copy
     {
@@ -988,7 +971,7 @@ mod test {
             let a = (&extents).iter_tau();
             let b = (&extents).iter_rho();
 
-            iter_eq(a, b)
+            a.eq(b)
         }
 
         quickcheck(prop as fn(RandomExtentList) -> bool);
@@ -1036,7 +1019,7 @@ mod test {
     fn contained_in_all_tau_matches_all_rho() {
         fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
             let c = ContainedIn { a: &a, b: &b };
-            iter_eq(c.iter_tau(), c.iter_rho())
+            c.iter_tau().eq(c.iter_rho())
         }
 
         quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
@@ -1046,7 +1029,7 @@ mod test {
     fn contained_in_all_tau_prime_matches_all_rho_prime() {
         fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
             let c = ContainedIn { a: &a, b: &b };
-            iter_eq(c.iter_tau_prime(), c.iter_rho_prime())
+            c.iter_tau_prime().eq(c.iter_rho_prime())
         }
 
         quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
@@ -1113,7 +1096,7 @@ mod test {
     fn containing_all_tau_matches_all_rho() {
         fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
             let c = Containing { a: &a, b: &b };
-            iter_eq(c.iter_tau(), c.iter_rho())
+            c.iter_tau().eq(c.iter_rho())
         }
 
         quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
@@ -1123,7 +1106,7 @@ mod test {
     fn containing_all_tau_prime_matches_all_rho_prime() {
         fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
             let c = Containing { a: &a, b: &b };
-            iter_eq(c.iter_tau_prime(), c.iter_rho_prime())
+            c.iter_tau_prime().eq(c.iter_rho_prime())
         }
 
         quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
@@ -1190,7 +1173,7 @@ mod test {
     fn not_contained_in_all_tau_matches_all_rho() {
         fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
             let c = NotContainedIn { a: &a, b: &b };
-            iter_eq(c.iter_tau(), c.iter_rho())
+            c.iter_tau().eq(c.iter_rho())
         }
 
         quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
@@ -1200,7 +1183,7 @@ mod test {
     fn not_contained_in_all_tau_prime_matches_all_rho_prime() {
         fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
             let c = NotContainedIn { a: &a, b: &b };
-            iter_eq(c.iter_tau_prime(), c.iter_rho_prime())
+            c.iter_tau_prime().eq(c.iter_rho_prime())
         }
 
         quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
@@ -1267,7 +1250,7 @@ mod test {
     fn not_containing_all_tau_matches_all_rho() {
         fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
             let c = NotContaining { a: &a, b: &b };
-            iter_eq(c.iter_tau(), c.iter_rho())
+            c.iter_tau().eq(c.iter_rho())
         }
 
         quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
@@ -1277,7 +1260,7 @@ mod test {
     fn not_containing_all_tau_prime_matches_all_rho_prime() {
         fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
             let c = NotContaining { a: &a, b: &b };
-            iter_eq(c.iter_tau_prime(), c.iter_rho_prime())
+            c.iter_tau_prime().eq(c.iter_rho_prime())
         }
 
         quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
@@ -1344,7 +1327,7 @@ mod test {
     fn both_of_all_tau_matches_all_rho() {
         fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
             let c = BothOf { a: &a, b: &b };
-            iter_eq(c.iter_tau(), c.iter_rho())
+            c.iter_tau().eq(c.iter_rho())
         }
 
         quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
@@ -1354,7 +1337,7 @@ mod test {
     fn both_of_all_tau_prime_matches_all_rho_prime() {
         fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
             let c = BothOf { a: &a, b: &b };
-            iter_eq(c.iter_tau_prime(), c.iter_rho_prime())
+            c.iter_tau_prime().eq(c.iter_rho_prime())
         }
 
         quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
@@ -1470,7 +1453,7 @@ mod test {
     fn one_of_all_tau_matches_all_rho() {
         fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
             let c = OneOf { a: &a, b: &b };
-            iter_eq(c.iter_tau(), c.iter_rho())
+            c.iter_tau().eq(c.iter_rho())
         }
 
         quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
@@ -1625,7 +1608,7 @@ mod test {
     fn followed_by_all_tau_matches_all_rho() {
         fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
             let c = FollowedBy { a: &a, b: &b };
-            iter_eq(c.iter_tau(), c.iter_rho())
+            c.iter_tau().eq(c.iter_rho())
         }
 
         quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
@@ -1635,7 +1618,7 @@ mod test {
     fn followed_by_all_tau_prime_matches_all_rho_prime() {
         fn prop(a: RandomExtentList, b: RandomExtentList) -> bool {
             let c = FollowedBy { a: &a, b: &b };
-            iter_eq(c.iter_tau_prime(), c.iter_rho_prime())
+            c.iter_tau_prime().eq(c.iter_rho_prime())
         }
 
         quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
@@ -1756,7 +1739,7 @@ mod test {
     #[test]
     fn tree_of_operators_all_tau_matches_all_rho() {
         fn prop(a: ArbitraryAlgebraTree) -> bool {
-            iter_eq((&a).iter_tau(), (&a).iter_rho())
+            (&a).iter_tau().eq((&a).iter_rho())
         }
 
         quickcheck(prop as fn(ArbitraryAlgebraTree) -> bool);
@@ -1765,7 +1748,7 @@ mod test {
     #[test]
     fn tree_of_operators_all_tau_prime_matches_all_rho_prime() {
         fn prop(a: ArbitraryAlgebraTree) -> bool {
-            iter_eq((&a).iter_tau_prime(), (&a).iter_rho_prime())
+            (&a).iter_tau_prime().eq((&a).iter_rho_prime())
         }
 
         quickcheck(prop as fn(ArbitraryAlgebraTree) -> bool);

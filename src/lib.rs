@@ -974,7 +974,7 @@ mod test {
             a.eq(b)
         }
 
-        quickcheck(prop as fn(RandomExtentList) -> bool);
+        quickcheck(prop as fn(_) -> _);
     }
 
     #[test]
@@ -1022,7 +1022,7 @@ mod test {
             c.iter_tau().eq(c.iter_rho())
         }
 
-        quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+        quickcheck(prop as fn(_, _) -> _);
     }
 
     #[test]
@@ -1032,7 +1032,7 @@ mod test {
             c.iter_tau_prime().eq(c.iter_rho_prime())
         }
 
-        quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+        quickcheck(prop as fn(_, _) -> _);
     }
 
     #[test]
@@ -1041,7 +1041,7 @@ mod test {
             any_k(ContainedIn { a: &a, b: &b }, k)
         }
 
-        quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
+        quickcheck(prop as fn(_, _, _) -> _);
     }
 
     #[test]
@@ -1099,7 +1099,7 @@ mod test {
             c.iter_tau().eq(c.iter_rho())
         }
 
-        quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+        quickcheck(prop as fn(_, _) -> _);
     }
 
     #[test]
@@ -1109,7 +1109,7 @@ mod test {
             c.iter_tau_prime().eq(c.iter_rho_prime())
         }
 
-        quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+        quickcheck(prop as fn(_, _) -> _);
     }
 
     #[test]
@@ -1118,7 +1118,7 @@ mod test {
             any_k(Containing { a: &a, b: &b }, k)
         }
 
-        quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
+        quickcheck(prop as fn(_, _, _) -> _);
     }
 
     #[test]
@@ -1176,7 +1176,7 @@ mod test {
             c.iter_tau().eq(c.iter_rho())
         }
 
-        quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+        quickcheck(prop as fn(_, _) -> _);
     }
 
     #[test]
@@ -1186,7 +1186,7 @@ mod test {
             c.iter_tau_prime().eq(c.iter_rho_prime())
         }
 
-        quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+        quickcheck(prop as fn(_, _) -> _);
     }
 
     #[test]
@@ -1195,7 +1195,7 @@ mod test {
             any_k(NotContainedIn { a: &a, b: &b }, k)
         }
 
-        quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
+        quickcheck(prop as fn(_, _, _) -> _);
     }
 
     #[test]
@@ -1253,7 +1253,7 @@ mod test {
             c.iter_tau().eq(c.iter_rho())
         }
 
-        quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+        quickcheck(prop as fn(_, _) -> _);
     }
 
     #[test]
@@ -1263,7 +1263,7 @@ mod test {
             c.iter_tau_prime().eq(c.iter_rho_prime())
         }
 
-        quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+        quickcheck(prop as fn(_, _) -> _);
     }
 
     #[test]
@@ -1272,7 +1272,7 @@ mod test {
             any_k(NotContaining { a: &a, b: &b }, k)
         }
 
-        quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
+        quickcheck(prop as fn(_, _, _) -> _);
     }
 
     #[test]
@@ -1330,7 +1330,7 @@ mod test {
             c.iter_tau().eq(c.iter_rho())
         }
 
-        quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+        quickcheck(prop as fn(_, _) -> _);
     }
 
     #[test]
@@ -1340,7 +1340,7 @@ mod test {
             c.iter_tau_prime().eq(c.iter_rho_prime())
         }
 
-        quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+        quickcheck(prop as fn(_, _) -> _);
     }
 
     #[test]
@@ -1349,7 +1349,7 @@ mod test {
             any_k(BothOf { a: &a, b: &b }, k)
         }
 
-        quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
+        quickcheck(prop as fn(_, _, _) -> _);
     }
 
     #[test]
@@ -1456,7 +1456,7 @@ mod test {
             c.iter_tau().eq(c.iter_rho())
         }
 
-        quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+        quickcheck(prop as fn(_, _) -> _);
     }
 
     #[test]
@@ -1465,7 +1465,7 @@ mod test {
             any_k(OneOf { a: &a, b: &b }, k)
         }
 
-        quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
+        quickcheck(prop as fn(_, _, _) -> _);
     }
 
     #[test]
@@ -1611,7 +1611,7 @@ mod test {
             c.iter_tau().eq(c.iter_rho())
         }
 
-        quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+        quickcheck(prop as fn(_, _) -> _);
     }
 
     #[test]
@@ -1621,7 +1621,7 @@ mod test {
             c.iter_tau_prime().eq(c.iter_rho_prime())
         }
 
-        quickcheck(prop as fn(RandomExtentList, RandomExtentList) -> bool);
+        quickcheck(prop as fn(_, _) -> _);
     }
 
     #[test]
@@ -1630,7 +1630,7 @@ mod test {
             any_k(FollowedBy { a: &a, b: &b }, k)
         }
 
-        quickcheck(prop as fn(RandomExtentList, RandomExtentList, Position) -> bool);
+        quickcheck(prop as fn(_, _, _) -> _);
     }
 
     #[test]
@@ -1742,7 +1742,7 @@ mod test {
             (&a).iter_tau().eq((&a).iter_rho())
         }
 
-        quickcheck(prop as fn(ArbitraryAlgebraTree) -> bool);
+        quickcheck(prop as fn(_) -> _);
     }
 
     #[test]
@@ -1751,7 +1751,7 @@ mod test {
             (&a).iter_tau_prime().eq((&a).iter_rho_prime())
         }
 
-        quickcheck(prop as fn(ArbitraryAlgebraTree) -> bool);
+        quickcheck(prop as fn(_) -> _);
     }
 
     #[test]
@@ -1760,6 +1760,6 @@ mod test {
             any_k(&a, k)
         }
 
-        quickcheck(prop as fn(ArbitraryAlgebraTree, Position) -> bool);
+        quickcheck(prop as fn(_, _) -> _);
     }
 }

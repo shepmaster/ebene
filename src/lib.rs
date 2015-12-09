@@ -1,4 +1,4 @@
-use std::u64;
+use std::{u32, u64};
 use std::cmp::{min,max};
 use Position::*;
 
@@ -334,6 +334,83 @@ impl Algebra for Empty {
     fn tau_prime(&self, _: Position) -> Extent { START_EXTENT }
     fn rho(&self, _: Position)       -> Extent { END_EXTENT }
     fn rho_prime(&self, _: Position) -> Extent { START_EXTENT }
+}
+
+const DOC_MIN: u32 = u32::MIN;
+const DOC_MAX: u32 = u32::MAX;
+const DOC_OFFSET_MIN: u32 = u32::MIN;
+const DOC_OFFSET_MAX: u32 = u32::MAX;
+
+fn k_to_doc_and_offset(k: u64) -> (u32, u32) {
+    ((k >> 32) as u32, k as u32)
+}
+
+fn doc_and_offset_to_k(doc: u32, offset: u32) -> u64 {
+    (doc as u64) << 32 | offset as u64
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct Documents {
+    count: u32
+}
+
+impl Documents {
+    pub fn new(count: u32) -> Documents { Documents { count: count } }
+
+    fn _doc_index_to_extent(&self, doc: u32) -> Extent {
+        let start = doc_and_offset_to_k(doc, 0);
+        let end = doc_and_offset_to_k(doc, DOC_OFFSET_MAX);
+        (start, end).into()
+    }
+
+    fn doc_index_to_extent_forwards(&self, doc: u32) -> Extent {
+        if doc >= self.count { return END_EXTENT }
+        self._doc_index_to_extent(doc)
+    }
+
+    // Clamps to the last document
+    fn doc_index_to_extent_backwards(&self, doc: u32) -> Extent {
+        if self.count == 0 { return START_EXTENT }
+        self._doc_index_to_extent(min(doc, self.count - 1))
+    }
+}
+
+impl Algebra for Documents {
+    fn tau(&self, k: Position) -> Extent {
+        let k = check_and_unwrap_forwards!(k);
+
+        match k_to_doc_and_offset(k) {
+            (doc,     DOC_OFFSET_MIN) => self.doc_index_to_extent_forwards(doc),
+            (DOC_MAX, _)              => END_EXTENT,
+            (doc,     _)              => self.doc_index_to_extent_forwards(doc + 1),
+        }
+    }
+
+    fn tau_prime(&self, k: Position) -> Extent {
+        let k = check_and_unwrap_backwards!(k);
+
+        match k_to_doc_and_offset(k) {
+            (doc,     DOC_OFFSET_MAX) => self.doc_index_to_extent_backwards(doc),
+            (DOC_MIN, _)              => START_EXTENT,
+            (doc,     _)              => self.doc_index_to_extent_backwards(doc - 1),
+        }
+    }
+
+    fn rho(&self, k: Position) -> Extent {
+        let k = check_and_unwrap_forwards!(k);
+
+        match k_to_doc_and_offset(k) {
+            (doc, _) => self.doc_index_to_extent_forwards(doc),
+        }
+    }
+
+    fn rho_prime(&self, k: Position) -> Extent {
+        let k = check_and_unwrap_backwards!(k);
+
+        match k_to_doc_and_offset(k) {
+            (doc, _) => self.doc_index_to_extent_backwards(doc),
+        }
+    }
 }
 
 /// Finds extents from the first list that are contained in extents
@@ -861,10 +938,12 @@ mod test {
     extern crate quickcheck;
 
     use std::fmt::Debug;
+    use std::u32;
+
     use self::quickcheck::{quickcheck,Arbitrary};
 
     use super::*;
-    use super::END_EXTENT;
+    use super::{START_EXTENT, END_EXTENT};
 
     fn find_invalid_gc_list_pair(extents: &[ValidExtent]) -> Option<(ValidExtent, ValidExtent)> {
         extents
@@ -1766,5 +1845,143 @@ mod test {
         }
 
         quickcheck(prop as fn(_, _) -> _);
+    }
+
+    #[test]
+    fn document_tau_matches_rho() {
+        fn prop(count: u8) -> bool {
+            let d = Documents::new(count as u32);
+            d.iter_tau().eq(d.iter_rho())
+        }
+
+        quickcheck(prop as fn(_) -> _);
+    }
+
+    #[test]
+    fn document_tau_prime_matches_rho_prime() {
+        fn prop(count: u8) -> bool {
+            let d = Documents::new(count as u32);
+            d.iter_tau_prime().eq(d.iter_rho_prime())
+        }
+
+        quickcheck(prop as fn(_) -> _);
+    }
+
+    fn doc_k(idx: u32, offset: u32) -> Position {
+        ((idx as u64) << 32 | offset as u64).into()
+    }
+
+    fn doc_extent(idx: u32) -> (u64, u64) {
+        let start = (idx as u64) << 32;
+        let end = start + 0xFFFFFFFF;
+        (start, end)
+    }
+
+    #[test]
+    fn document_tau_at_document_start() {
+        let d = Documents::new(10);
+        assert_eq!(d.tau(doc_k(1, 0)), doc_extent(1));
+    }
+
+    #[test]
+    fn document_tau_at_document_end() {
+        let d = Documents::new(10);
+        assert_eq!(d.tau(doc_k(1, u32::MAX)), doc_extent(2));
+    }
+
+    #[test]
+    fn document_tau_between_document_boundaries() {
+        let d = Documents::new(10);
+        assert_eq!(d.tau(doc_k(1, 42)), doc_extent(2));
+    }
+
+    #[test]
+    fn document_tau_at_directional_end() {
+        let d = Documents::new(10);
+        assert_eq!(d.tau(doc_k(10, 1)), END_EXTENT)
+    }
+
+    #[test]
+    fn document_tau_prime_at_document_start() {
+        let d = Documents::new(10);
+        assert_eq!(d.tau_prime(doc_k(1, 0)), doc_extent(0));
+    }
+
+    #[test]
+    fn document_tau_prime_at_document_end() {
+        let d = Documents::new(10);
+        assert_eq!(d.tau_prime(doc_k(1, u32::MAX)), doc_extent(1));
+    }
+
+    #[test]
+    fn document_tau_prime_between_document_boundaries() {
+        let d = Documents::new(10);
+        assert_eq!(d.tau_prime(doc_k(1, 42)), doc_extent(0));
+    }
+
+    #[test]
+    fn document_tau_prime_before_directional_start() {
+        let d = Documents::new(10);
+        assert_eq!(d.tau_prime(doc_k(20, 0)), doc_extent(9))
+    }
+
+    #[test]
+    fn document_tau_prime_at_directional_end() {
+        let d = Documents::new(10);
+        assert_eq!(d.tau_prime(doc_k(0, u32::MAX - 1)), START_EXTENT)
+    }
+
+    #[test]
+    fn document_rho_at_document_start() {
+        let d = Documents::new(10);
+        assert_eq!(d.rho(doc_k(1, 0)), doc_extent(1));
+    }
+
+    #[test]
+    fn document_rho_at_document_end() {
+        let d = Documents::new(10);
+        assert_eq!(d.rho(doc_k(1, u32::MAX)), doc_extent(1));
+    }
+
+    #[test]
+    fn document_rho_between_document_boundaries() {
+        let d = Documents::new(10);
+        assert_eq!(d.rho(doc_k(1, 42)), doc_extent(1));
+    }
+
+    #[test]
+    fn document_rho_at_directional_end() {
+        let d = Documents::new(10);
+        assert_eq!(d.rho(doc_k(11, 0)), END_EXTENT)
+    }
+
+    #[test]
+    fn document_rho_prime_at_document_start() {
+        let d = Documents::new(10);
+        assert_eq!(d.rho_prime(doc_k(1, 0)), doc_extent(1));
+    }
+
+    #[test]
+    fn document_rho_prime_at_document_end() {
+        let d = Documents::new(10);
+        assert_eq!(d.rho_prime(doc_k(1, u32::MAX)), doc_extent(1));
+    }
+
+    #[test]
+    fn document_rho_prime_between_document_boundaries() {
+        let d = Documents::new(10);
+        assert_eq!(d.rho_prime(doc_k(1, 42)), doc_extent(1));
+    }
+
+    #[test]
+    fn document_rho_prime_before_directional_start() {
+        let d = Documents::new(10);
+        assert_eq!(d.rho_prime(doc_k(20, 0)), doc_extent(9))
+    }
+
+    #[test]
+    fn document_rho_prime_at_directional_end() {
+        let d = Documents::new(10);
+        assert_eq!(d.rho_prime(doc_k(0, 0)), doc_extent(0))
     }
 }

@@ -774,8 +774,8 @@ impl<A, B> Algebra for BothOf<A, B>
 /// `tau` would be correct for k=[0,5], but `rho` fails at k=[4,5],
 /// producing (1,5).
 ///
-/// To work around this, we work backward using tau_prime and then
-/// forward again with tau, until we find a valid extent.
+/// To work around this, we work backward using `tau_prime` and then
+/// forward again with `tau`, until we find a valid extent.
 #[derive(Debug,Copy,Clone)]
 pub struct OneOf<A, B>
     where A: Algebra,
@@ -867,7 +867,7 @@ impl<A, B> Algebra for OneOf<A, B>
 /// # tau-prime and rho-prime
 ///
 /// In addition to the generic rules for constructing the prime
-/// variants, FollowedBy requires that the A and B children be
+/// variants, `FollowedBy` requires that the A and B children be
 /// swapped. This ensures that the ordering constraints are adhered,
 /// otherwise we would find extents from B followed by extents from A.
 ///

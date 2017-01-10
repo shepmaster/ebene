@@ -49,7 +49,7 @@ fn index_document(content: &str) -> HashMap<String, Vec<ValidExtent>> {
 
             let word = content[(extent.0 as usize)..(extent.1 as usize)].to_lowercase();
 
-            index.entry(word).or_insert(vec![]).push((extent.0, extent.1));
+            index.entry(word).or_insert_with(Vec::new).push((extent.0, extent.1));
         }
     }
 
@@ -79,7 +79,7 @@ fn json_to_query<'a>(json: &Json,
             };
 
             if cmd == "L" {
-                if let &Json::String(ref s) = lhs {
+                if let Json::String(ref s) = *lhs {
                     let z = layers.get(&s[..]).map(|x| &x[..]).unwrap_or(&[][..]);
                     return Ok(Box::new(z));
                 } else {
@@ -90,7 +90,7 @@ fn json_to_query<'a>(json: &Json,
             let a = try!(json_to_query(lhs, index, layers));
             let b = try!(json_to_query(rhs, index, layers));
 
-            let op: Box<Algebra> = match &cmd[..] {
+            match &cmd[..] {
                 "<"  => Box::new(ContainedIn::new(a, b)),
                 ">"  => Box::new(Containing::new(a, b)),
                 "/<" => Box::new(NotContainedIn::new(a, b)),
@@ -99,9 +99,7 @@ fn json_to_query<'a>(json: &Json,
                 "|"  => Box::new(OneOf::new(a, b)),
                 "->" => Box::new(FollowedBy::new(a, b)),
                 _    => return Err("Unknown op"),
-            };
-
-            op
+            }
         },
         _ => Box::new(Empty),
     };
@@ -109,7 +107,13 @@ fn json_to_query<'a>(json: &Json,
     Ok(op)
 }
 
-fn index() -> (Vec<String>, HashMap<String, Vec<ValidExtent>>, HashMap<String, Vec<ValidExtent>>) {
+struct Index {
+    data: Vec<String>,
+    index: HashMap<String, Vec<ValidExtent>>,
+    layers: HashMap<String, Vec<ValidExtent>>,
+}
+
+fn index() -> Index {
     let mut data = Vec::new();
     let mut index = HashMap::new();
     let mut layers = HashMap::new();
@@ -120,10 +124,10 @@ fn index() -> (Vec<String>, HashMap<String, Vec<ValidExtent>>, HashMap<String, V
 
         data.push(doc.text);
         for (word, extents) in doc_index {
-            index.entry(word).or_insert(vec![]).extend(extents);
+            index.entry(word).or_insert_with(Vec::new).extend(extents);
         }
         for (name, extents) in doc.layers {
-            layers.entry(name).or_insert(vec![]).extend(extents);
+            layers.entry(name).or_insert_with(Vec::new).extend(extents);
         }
     }
 
@@ -136,7 +140,11 @@ fn index() -> (Vec<String>, HashMap<String, Vec<ValidExtent>>, HashMap<String, V
         println!("{}: {:?}", layer, extents);
     }
 
-    (data, index, layers)
+    Index {
+        data: data,
+        index: index,
+        layers: layers,
+    }
 }
 
 fn query_stdin(data: Vec<String>, index: HashMap<String, Vec<ValidExtent>>, layers: HashMap<String, Vec<ValidExtent>>) {
@@ -167,6 +175,6 @@ fn query_stdin(data: Vec<String>, index: HashMap<String, Vec<ValidExtent>>, laye
 }
 
 fn main() {
-    let (data, index, layers) = index();
-    query_stdin(data, index, layers);
+    let index = index();
+    query_stdin(index.data, index.index, index.layers);
 }

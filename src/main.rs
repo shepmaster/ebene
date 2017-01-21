@@ -12,7 +12,7 @@ use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 
-#[derive(Debug,Clone,RustcDecodable, RustcEncodable)]
+#[derive(Debug, Clone, RustcDecodable, RustcEncodable)]
 struct InputDocument {
     text: String,
     layers: HashMap<String, Vec<ValidExtent>>,
@@ -29,28 +29,25 @@ fn read_document(filename: &str) -> InputDocument {
 
 fn index_document(content: &str) -> HashMap<String, Vec<ValidExtent>> {
     let mut index = HashMap::new();
+    let mut chars = content.char_indices();
 
-    {
-        let mut chars = content.char_indices();
+    loop {
+        for _ in chars.by_ref().take_while_ref(|&(_, c)| ! c.is_alphabetic()) {}
 
-        loop {
-            for _ in chars.by_ref().take_while_ref(|&(_, c)| ! c.is_alphabetic()) {}
+        let (first, last) = {
+            let mut words = chars.by_ref().take_while_ref(|&(_, c)| c.is_alphabetic());
+            (words.next(), words.last())
+        };
 
-            let (first, last) = {
-                let mut words = chars.by_ref().take_while_ref(|&(_, c)| c.is_alphabetic());
-                (words.next(), words.last())
-            };
+        let extent = match (first, last) {
+            (Some(s), Some(e)) => (s.0 as u64, e.0 as u64 + 1),
+            (Some(s), None)    => (s.0 as u64, s.0 as u64 + 1),
+            (None, _)          => break,
+        };
 
-            let extent = match (first, last) {
-                (Some(s), Some(e)) => (s.0 as u64, e.0 as u64 + 1),
-                (Some(s), None)    => (s.0 as u64, s.0 as u64 + 1),
-                (None, _)          => break,
-            };
+        let word = content[(extent.0 as usize)..(extent.1 as usize)].to_lowercase();
 
-            let word = content[(extent.0 as usize)..(extent.1 as usize)].to_lowercase();
-
-            index.entry(word).or_insert_with(Vec::new).push((extent.0, extent.1));
-        }
+        index.entry(word).or_insert_with(Vec::new).push((extent.0, extent.1));
     }
 
     index
@@ -62,7 +59,7 @@ fn json_to_query<'a>(json: &Json,
                      -> Result<Box<Algebra + 'a>, &'static str>
 {
     let op: Box<Algebra> = match *json {
-        Json::String(ref s) => Box::new(index.get(&s[..]).map(|x| &x[..]).unwrap_or(&[][..])),
+        Json::String(ref s) => Box::new(index.get(s).map(Vec::as_slice).unwrap_or(&[])),
         Json::Array(ref a) => {
             let cmd = a.get(0);
             let lhs = a.get(1);
@@ -80,7 +77,7 @@ fn json_to_query<'a>(json: &Json,
 
             if cmd == "L" {
                 if let Json::String(ref s) = *lhs {
-                    let z = layers.get(&s[..]).map(|x| &x[..]).unwrap_or(&[][..]);
+                    let z = layers.get(s).map(Vec::as_slice).unwrap_or(&[]);
                     return Ok(Box::new(z));
                 } else {
                     return Err("bad layer request");
@@ -90,7 +87,7 @@ fn json_to_query<'a>(json: &Json,
             let a = try!(json_to_query(lhs, index, layers));
             let b = try!(json_to_query(rhs, index, layers));
 
-            match &cmd[..] {
+            match cmd.as_str() {
                 "<"  => Box::new(ContainedIn::new(a, b)),
                 ">"  => Box::new(Containing::new(a, b)),
                 "/<" => Box::new(NotContainedIn::new(a, b)),

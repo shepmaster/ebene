@@ -6,7 +6,6 @@ authors = ["Jake Goulding <jake.goulding@gmail.com>"]
 [dependencies]
 itertools = "*"
 rustc-serialize = "*"
-punkt = "*"
 
 [dev-dependencies]
 quickcheck = "*"

@@ -84,8 +84,8 @@ fn json_to_query<'a>(json: &Json,
                 }
             }
 
-            let a = try!(json_to_query(lhs, index, layers));
-            let b = try!(json_to_query(rhs, index, layers));
+            let a = json_to_query(lhs, index, layers)?;
+            let b = json_to_query(rhs, index, layers)?;
 
             match cmd.as_str() {
                 "<"  => Box::new(ContainedIn::new(a, b)),

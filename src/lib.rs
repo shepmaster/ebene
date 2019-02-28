@@ -1,6 +1,6 @@
 use std::{u32, u64};
 use std::cmp::{min,max};
-use Position::*;
+use crate::Position::*;
 
 #[derive(Debug,Copy,Clone,PartialEq,Eq,PartialOrd,Ord)]
 pub enum Position {

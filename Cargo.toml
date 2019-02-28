@@ -3,6 +3,15 @@ name = "strata"
 version = "0.1.0"
 authors = ["Jake Goulding <jake.goulding@gmail.com>"]
 
+readme = "README.md"
+description = "A unique search technology"
+documentation = "https://docs.rs/strata"
+repository = "https://github.com/shepmaster/strata"
+
+license = "MIT OR Apache-2.0"
+
+keywords = ["search-engine"]
+
 [dependencies]
 itertools = "*"
 rustc-serialize = "*"

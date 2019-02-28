@@ -1,6 +1,8 @@
 use crate::Position::*;
-use std::cmp::{max, min};
-use std::{u32, u64};
+use std::{
+    cmp::{max, min},
+    u32, u64,
+};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Position {
@@ -75,7 +77,7 @@ impl From<ValidExtent> for Extent {
 ///
 /// Iterators are provided that return the entire result set in the
 /// positive direction (tau, rho) and the negative direction
-/// (tau-prime,rho-prime). Both forward iterators and both backwards
+/// (tau-prime, rho-prime). Both forward iterators and both backwards
 /// iterators return the same extents, and the forwards and backwards
 /// iterators return the same extents in reverse order from each
 /// other. All 4 iterators are provided for completeness.
@@ -214,7 +216,8 @@ where
     T: Algebra,
 {
     type Item = ValidExtent;
-    fn next(&mut self) -> Option<ValidExtent> {
+
+    fn next(&mut self) -> Option<Self::Item> {
         let Extent(p, q) = self.list.tau(self.k);
         if p == PositiveInfinity {
             return None;
@@ -239,7 +242,8 @@ where
     T: Algebra,
 {
     type Item = ValidExtent;
-    fn next(&mut self) -> Option<ValidExtent> {
+
+    fn next(&mut self) -> Option<Self::Item> {
         let Extent(p, q) = self.list.rho(self.k);
         if q == PositiveInfinity {
             return None;
@@ -264,7 +268,8 @@ where
     T: Algebra,
 {
     type Item = ValidExtent;
-    fn next(&mut self) -> Option<ValidExtent> {
+
+    fn next(&mut self) -> Option<Self::Item> {
         let Extent(p, q) = self.list.tau_prime(self.k);
         if q == NegativeInfinity {
             return None;
@@ -289,7 +294,8 @@ where
     T: Algebra,
 {
     type Item = ValidExtent;
-    fn next(&mut self) -> Option<ValidExtent> {
+
+    fn next(&mut self) -> Option<Self::Item> {
         let Extent(p, q) = self.list.rho_prime(self.k);
         if p == NegativeInfinity {
             return None;
@@ -406,7 +412,7 @@ fn k_to_doc_and_offset(k: u64) -> (u32, u32) {
 }
 
 fn doc_and_offset_to_k(doc: u32, offset: u32) -> u64 {
-    (doc as u64) << 32 | offset as u64
+    (u64::from(doc)) << 32 | u64::from(offset)
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -416,28 +422,28 @@ pub struct Documents {
 
 impl Documents {
     pub fn new(count: u32) -> Documents {
-        Documents { count: count }
+        Documents { count }
     }
 
-    fn _doc_index_to_extent(&self, doc: u32) -> Extent {
+    fn doc_index_to_extent(self, doc: u32) -> Extent {
         let start = doc_and_offset_to_k(doc, 0);
         let end = doc_and_offset_to_k(doc, DOC_OFFSET_MAX);
         (start, end).into()
     }
 
-    fn doc_index_to_extent_forwards(&self, doc: u32) -> Extent {
+    fn doc_index_to_extent_forwards(self, doc: u32) -> Extent {
         if doc >= self.count {
             return END_EXTENT;
         }
-        self._doc_index_to_extent(doc)
+        self.doc_index_to_extent(doc)
     }
 
     // Clamps to the last document
-    fn doc_index_to_extent_backwards(&self, doc: u32) -> Extent {
+    fn doc_index_to_extent_backwards(self, doc: u32) -> Extent {
         if self.count == 0 {
             return START_EXTENT;
         }
-        self._doc_index_to_extent(min(doc, self.count - 1))
+        self.doc_index_to_extent(min(doc, self.count - 1))
     }
 }
 
@@ -499,7 +505,7 @@ where
     B: Algebra,
 {
     pub fn new(a: A, b: B) -> Self {
-        ContainedIn { a: a, b: b }
+        ContainedIn { a, b }
     }
 }
 
@@ -579,7 +585,7 @@ where
     B: Algebra,
 {
     pub fn new(a: A, b: B) -> Self {
-        Containing { a: a, b: b }
+        Containing { a, b }
     }
 }
 
@@ -653,7 +659,7 @@ where
     B: Algebra,
 {
     pub fn new(a: A, b: B) -> Self {
-        NotContainedIn { a: a, b: b }
+        NotContainedIn { a, b }
     }
 }
 
@@ -719,7 +725,7 @@ where
     B: Algebra,
 {
     pub fn new(a: A, b: B) -> Self {
-        NotContaining { a: a, b: b }
+        NotContaining { a, b }
     }
 }
 
@@ -789,7 +795,7 @@ where
     B: Algebra,
 {
     pub fn new(a: A, b: B) -> Self {
-        BothOf { a: a, b: b }
+        BothOf { a, b }
     }
 }
 
@@ -883,7 +889,7 @@ where
     B: Algebra,
 {
     pub fn new(a: A, b: B) -> Self {
-        OneOf { a: a, b: b }
+        OneOf { a, b }
     }
 }
 
@@ -991,7 +997,7 @@ where
     B: Algebra,
 {
     pub fn new(a: A, b: B) -> Self {
-        FollowedBy { a: a, b: b }
+        FollowedBy { a, b }
     }
 }
 
@@ -1044,17 +1050,11 @@ where
 
 #[cfg(test)]
 mod test {
-    extern crate quickcheck;
-    extern crate rand;
-
-    use std::fmt::Debug;
-    use std::u32;
-
-    use self::quickcheck::{quickcheck, Arbitrary};
-    use self::rand::Rng;
+    use quickcheck::{quickcheck, Arbitrary};
+    use rand::Rng;
+    use std::{fmt::Debug, u32};
 
     use super::*;
-    use super::{END_EXTENT, START_EXTENT};
 
     fn find_invalid_gc_list_pair(extents: &[ValidExtent]) -> Option<(ValidExtent, ValidExtent)> {
         extents
@@ -1065,7 +1065,7 @@ mod test {
 
     fn assert_valid_gc_list(extents: &[ValidExtent]) {
         if let Some((a, b)) = find_invalid_gc_list_pair(extents) {
-            assert!(false, "{:?} and {:?} are invalid GC-list members", a, b)
+            panic!("{:?} and {:?} are invalid GC-list members", a, b)
         }
     }
 
@@ -1248,7 +1248,7 @@ mod test {
     fn contained_in_needle_is_fully_within_haystack() {
         let a = &[(2, 3)][..];
         let b = &[(1, 4)][..];
-        let c = ContainedIn { a: a, b: b };
+        let c = ContainedIn { a, b };
         assert_eq!(c.tau(1.into()), (2, 3));
     }
 
@@ -1256,7 +1256,7 @@ mod test {
     fn contained_in_needle_end_matches_haystack_end() {
         let a = &[(2, 4)][..];
         let b = &[(1, 4)][..];
-        let c = ContainedIn { a: a, b: b };
+        let c = ContainedIn { a, b };
         assert_eq!(c.tau(1.into()), (2, 4));
     }
 
@@ -1264,7 +1264,7 @@ mod test {
     fn contained_in_needle_start_matches_haystack_start() {
         let a = &[(1, 3)][..];
         let b = &[(1, 4)][..];
-        let c = ContainedIn { a: a, b: b };
+        let c = ContainedIn { a, b };
         assert_eq!(c.tau(1.into()), (1, 3));
     }
 
@@ -1272,7 +1272,7 @@ mod test {
     fn contained_in_needle_and_haystack_exactly_match() {
         let a = &[(1, 4)][..];
         let b = &[(1, 4)][..];
-        let c = ContainedIn { a: a, b: b };
+        let c = ContainedIn { a, b };
         assert_eq!(c.tau(1.into()), (1, 4));
     }
 
@@ -1280,7 +1280,7 @@ mod test {
     fn contained_in_needle_starts_too_early() {
         let a = &[(1, 3)][..];
         let b = &[(2, 4)][..];
-        let c = ContainedIn { a: a, b: b };
+        let c = ContainedIn { a, b };
         assert_eq!(c.tau(1.into()), END_EXTENT);
     }
 
@@ -1288,7 +1288,7 @@ mod test {
     fn contained_in_needle_ends_too_late() {
         let a = &[(2, 5)][..];
         let b = &[(1, 4)][..];
-        let c = ContainedIn { a: a, b: b };
+        let c = ContainedIn { a, b };
         assert_eq!(c.tau(1.into()), END_EXTENT);
     }
 
@@ -1325,7 +1325,7 @@ mod test {
     fn containing_haystack_fully_around_needle() {
         let a = &[(1, 4)][..];
         let b = &[(2, 3)][..];
-        let c = Containing { a: a, b: b };
+        let c = Containing { a, b };
         assert_eq!(c.tau(1.into()), (1, 4));
     }
 
@@ -1333,7 +1333,7 @@ mod test {
     fn containing_haystack_end_matches_needle_end() {
         let a = &[(1, 4)][..];
         let b = &[(2, 4)][..];
-        let c = Containing { a: a, b: b };
+        let c = Containing { a, b };
         assert_eq!(c.tau(1.into()), (1, 4));
     }
 
@@ -1341,7 +1341,7 @@ mod test {
     fn containing_haystack_start_matches_needle_start() {
         let a = &[(1, 4)][..];
         let b = &[(1, 3)][..];
-        let c = Containing { a: a, b: b };
+        let c = Containing { a, b };
         assert_eq!(c.tau(1.into()), (1, 4));
     }
 
@@ -1349,7 +1349,7 @@ mod test {
     fn containing_haystack_and_needle_exactly_match() {
         let a = &[(1, 4)][..];
         let b = &[(1, 4)][..];
-        let c = Containing { a: a, b: b };
+        let c = Containing { a, b };
         assert_eq!(c.tau(1.into()), (1, 4));
     }
 
@@ -1357,7 +1357,7 @@ mod test {
     fn containing_haystack_starts_too_late() {
         let a = &[(2, 4)][..];
         let b = &[(1, 3)][..];
-        let c = Containing { a: a, b: b };
+        let c = Containing { a, b };
         assert_eq!(c.tau(1.into()), END_EXTENT);
     }
 
@@ -1365,7 +1365,7 @@ mod test {
     fn containing_haystack_ends_too_early() {
         let a = &[(1, 4)][..];
         let b = &[(2, 5)][..];
-        let c = Containing { a: a, b: b };
+        let c = Containing { a, b };
         assert_eq!(c.tau(1.into()), END_EXTENT);
     }
 
@@ -1402,7 +1402,7 @@ mod test {
     fn not_contained_in_needle_is_fully_within_haystack() {
         let a = &[(2, 3)][..];
         let b = &[(1, 4)][..];
-        let c = NotContainedIn { a: a, b: b };
+        let c = NotContainedIn { a, b };
         assert_eq!(c.tau(1.into()), END_EXTENT);
     }
 
@@ -1410,7 +1410,7 @@ mod test {
     fn not_contained_in_needle_end_matches_haystack_end() {
         let a = &[(2, 4)][..];
         let b = &[(1, 4)][..];
-        let c = NotContainedIn { a: a, b: b };
+        let c = NotContainedIn { a, b };
         assert_eq!(c.tau(1.into()), END_EXTENT);
     }
 
@@ -1418,7 +1418,7 @@ mod test {
     fn not_contained_in_needle_start_matches_haystack_start() {
         let a = &[(1, 3)][..];
         let b = &[(1, 4)][..];
-        let c = NotContainedIn { a: a, b: b };
+        let c = NotContainedIn { a, b };
         assert_eq!(c.tau(1.into()), END_EXTENT);
     }
 
@@ -1426,7 +1426,7 @@ mod test {
     fn not_contained_in_needle_and_haystack_exactly_match() {
         let a = &[(1, 4)][..];
         let b = &[(1, 4)][..];
-        let c = NotContainedIn { a: a, b: b };
+        let c = NotContainedIn { a, b };
         assert_eq!(c.tau(1.into()), END_EXTENT);
     }
 
@@ -1434,7 +1434,7 @@ mod test {
     fn not_contained_in_needle_starts_too_early() {
         let a = &[(1, 3)][..];
         let b = &[(2, 4)][..];
-        let c = NotContainedIn { a: a, b: b };
+        let c = NotContainedIn { a, b };
         assert_eq!(c.tau(1.into()), (1, 3));
     }
 
@@ -1442,7 +1442,7 @@ mod test {
     fn not_contained_in_needle_ends_too_late() {
         let a = &[(2, 5)][..];
         let b = &[(1, 4)][..];
-        let c = NotContainedIn { a: a, b: b };
+        let c = NotContainedIn { a, b };
         assert_eq!(c.tau(1.into()), (2, 5));
     }
 
@@ -1479,7 +1479,7 @@ mod test {
     fn not_containing_haystack_fully_around_needle() {
         let a = &[(1, 4)][..];
         let b = &[(2, 3)][..];
-        let c = NotContaining { a: a, b: b };
+        let c = NotContaining { a, b };
         assert_eq!(c.tau(1.into()), END_EXTENT);
     }
 
@@ -1487,7 +1487,7 @@ mod test {
     fn not_containing_haystack_end_matches_needle_end() {
         let a = &[(1, 4)][..];
         let b = &[(2, 4)][..];
-        let c = NotContaining { a: a, b: b };
+        let c = NotContaining { a, b };
         assert_eq!(c.tau(1.into()), END_EXTENT);
     }
 
@@ -1495,7 +1495,7 @@ mod test {
     fn not_containing_haystack_start_matches_needle_start() {
         let a = &[(1, 4)][..];
         let b = &[(1, 3)][..];
-        let c = NotContaining { a: a, b: b };
+        let c = NotContaining { a, b };
         assert_eq!(c.tau(1.into()), END_EXTENT);
     }
 
@@ -1503,7 +1503,7 @@ mod test {
     fn not_containing_haystack_and_needle_exactly_match() {
         let a = &[(1, 4)][..];
         let b = &[(1, 4)][..];
-        let c = NotContaining { a: a, b: b };
+        let c = NotContaining { a, b };
         assert_eq!(c.tau(1.into()), END_EXTENT);
     }
 
@@ -1511,7 +1511,7 @@ mod test {
     fn not_containing_haystack_starts_too_late() {
         let a = &[(2, 4)][..];
         let b = &[(1, 3)][..];
-        let c = NotContaining { a: a, b: b };
+        let c = NotContaining { a, b };
         assert_eq!(c.tau(1.into()), (2, 4));
     }
 
@@ -1519,7 +1519,7 @@ mod test {
     fn not_containing_haystack_ends_too_early() {
         let a = &[(1, 4)][..];
         let b = &[(2, 5)][..];
-        let c = NotContaining { a: a, b: b };
+        let c = NotContaining { a, b };
         assert_eq!(c.tau(1.into()), (1, 4));
     }
 
@@ -1637,7 +1637,7 @@ mod test {
     fn both_of_lists_have_extents_starting_after_point() {
         let a = &[(1, 2)][..];
         let b = &[(3, 4)][..];
-        let c = BothOf { a: a, b: b };
+        let c = BothOf { a, b };
         assert_eq!(c.tau(1.into()), (1, 4));
     }
 
@@ -1645,7 +1645,7 @@ mod test {
     fn both_of_lists_do_not_have_extents_starting_after_point() {
         let a = &[(1, 2)][..];
         let b = &[(3, 4)][..];
-        let c = BothOf { a: a, b: b };
+        let c = BothOf { a, b };
         assert_eq!(c.tau(5.into()), END_EXTENT);
     }
 
@@ -1837,7 +1837,7 @@ mod test {
     fn followed_by_empty_lists() {
         let a = &[][..];
         let b = &[][..];
-        let c = FollowedBy { a: a, b: b };
+        let c = FollowedBy { a, b };
         assert_eq!(all_extents(c), []);
     }
 
@@ -1846,7 +1846,7 @@ mod test {
         let a = &[(1, 2)][..];
         let b = &[][..];
 
-        let c = FollowedBy { a: a, b: b };
+        let c = FollowedBy { a, b };
         assert_eq!(all_extents(c), []);
 
         let c = FollowedBy { a: b, b: a };
@@ -1857,7 +1857,7 @@ mod test {
     fn followed_by_overlapping() {
         let a = &[(1, 2)][..];
         let b = &[(2, 3)][..];
-        let c = FollowedBy { a: a, b: b };
+        let c = FollowedBy { a, b };
         assert_eq!(all_extents(c), []);
     }
 
@@ -1865,7 +1865,7 @@ mod test {
     fn followed_by_in_ascending_order() {
         let a = &[(1, 2)][..];
         let b = &[(3, 4)][..];
-        let c = FollowedBy { a: a, b: b };
+        let c = FollowedBy { a, b };
         assert_eq!(all_extents(c), [(1, 4)]);
     }
 
@@ -1873,7 +1873,7 @@ mod test {
     fn followed_by_in_descending_order() {
         let a = &[(3, 4)][..];
         let b = &[(1, 2)][..];
-        let c = FollowedBy { a: a, b: b };
+        let c = FollowedBy { a, b };
         assert_eq!(all_extents(c), []);
     }
 
@@ -1935,13 +1935,13 @@ mod test {
                     let b = inner(g, size / 2);
 
                     let c: Box<QuickcheckAlgebra + Send> = match g.gen_range(0, 7) {
-                        0 => Box::new(ContainedIn { a: a, b: b }),
-                        1 => Box::new(Containing { a: a, b: b }),
-                        2 => Box::new(NotContainedIn { a: a, b: b }),
-                        3 => Box::new(NotContaining { a: a, b: b }),
-                        4 => Box::new(BothOf { a: a, b: b }),
-                        5 => Box::new(OneOf { a: a, b: b }),
-                        6 => Box::new(FollowedBy { a: a, b: b }),
+                        0 => Box::new(ContainedIn { a, b }),
+                        1 => Box::new(Containing { a, b }),
+                        2 => Box::new(NotContainedIn { a, b }),
+                        3 => Box::new(NotContaining { a, b }),
+                        4 => Box::new(BothOf { a, b }),
+                        5 => Box::new(OneOf { a, b }),
+                        6 => Box::new(FollowedBy { a, b }),
                         _ => unreachable!(),
                     };
 
@@ -1984,7 +1984,7 @@ mod test {
     #[test]
     fn document_tau_matches_rho() {
         fn prop(count: u8) -> bool {
-            let d = Documents::new(count as u32);
+            let d = Documents::new(u32::from(count));
             d.iter_tau().eq(d.iter_rho())
         }
 
@@ -1994,7 +1994,7 @@ mod test {
     #[test]
     fn document_tau_prime_matches_rho_prime() {
         fn prop(count: u8) -> bool {
-            let d = Documents::new(count as u32);
+            let d = Documents::new(u32::from(count));
             d.iter_tau_prime().eq(d.iter_rho_prime())
         }
 
@@ -2002,12 +2002,12 @@ mod test {
     }
 
     fn doc_k(idx: u32, offset: u32) -> Position {
-        ((idx as u64) << 32 | offset as u64).into()
+        (u64::from(idx) << 32 | u64::from(offset)).into()
     }
 
     fn doc_extent(idx: u32) -> (u64, u64) {
-        let start = (idx as u64) << 32;
-        let end = start + 0xFFFFFFFF;
+        let start = u64::from(idx) << 32;
+        let end = start + 0xFFFF_FFFF;
         (start, end)
     }
 

@@ -1,16 +1,7 @@
-extern crate itertools;
-extern crate rustc_serialize;
-extern crate strata;
-
 use itertools::Itertools;
 use rustc_serialize::json::{self, Json};
+use std::{collections::HashMap, env, fs, io, io::prelude::*};
 use strata::*;
-
-use std::collections::HashMap;
-use std::env;
-use std::fs::File;
-use std::io;
-use std::io::prelude::*;
 
 #[derive(Debug, Clone, RustcDecodable, RustcEncodable)]
 struct InputDocument {
@@ -19,11 +10,7 @@ struct InputDocument {
 }
 
 fn read_document(filename: &str) -> InputDocument {
-    let mut f = File::open(filename).unwrap();
-
-    let mut s = String::new();
-    f.read_to_string(&mut s).unwrap();
-
+    let s = fs::read_to_string(filename).unwrap();
     json::decode(&s).unwrap()
 }
 
@@ -141,9 +128,9 @@ fn index() -> Index {
     }
 
     Index {
-        data: data,
-        index: index,
-        layers: layers,
+        data,
+        index,
+        layers,
     }
 }
 

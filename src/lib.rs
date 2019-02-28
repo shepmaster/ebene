@@ -935,11 +935,13 @@ impl<A, B> Algebra for FollowedBy<A, B>
 
 #[cfg(test)]
 mod test {
+    extern crate rand;
     extern crate quickcheck;
 
     use std::fmt::Debug;
     use std::u32;
 
+    use self::rand::Rng;
     use self::quickcheck::{quickcheck,Arbitrary};
 
     use super::*;
@@ -1791,7 +1793,7 @@ mod test {
             fn inner<G>(g: &mut G, size: usize) -> ArbitraryAlgebraTree
                 where G: quickcheck::Gen
             {
-                let generate_leaf: bool = g.gen_weighted_bool(10);
+                let generate_leaf: bool = g.gen_bool(0.1);
 
                 if size == 0 || generate_leaf {
                     let extents = RandomExtentList::arbitrary(g);

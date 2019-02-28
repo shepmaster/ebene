@@ -13,8 +13,8 @@ license = "MIT OR Apache-2.0"
 keywords = ["search-engine"]
 
 [dependencies]
-itertools = "*"
-rustc-serialize = "*"
+itertools = "0.8.0"
+rustc-serialize = "0.3.24"
 
 [dev-dependencies]
-quickcheck = "*"
+quickcheck = "0.8.2"

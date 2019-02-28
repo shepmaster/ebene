@@ -1,0 +1,9 @@
+[package]
+name = "explore"
+version = "0.1.0"
+authors = ["Jake Goulding <jake.goulding@gmail.com>"]
+
+[dependencies]
+strata = { path = ".." }
+itertools = "0.8.0"
+rustc-serialize = "0.3.24"

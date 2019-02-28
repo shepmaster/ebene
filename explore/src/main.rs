@@ -1,10 +1,10 @@
-extern crate strata;
 extern crate itertools;
 extern crate rustc_serialize;
+extern crate strata;
 
-use strata::*;
 use itertools::Itertools;
 use rustc_serialize::json::{self, Json};
+use strata::*;
 
 use std::collections::HashMap;
 use std::env;
@@ -32,7 +32,7 @@ fn index_document(content: &str) -> HashMap<String, Vec<ValidExtent>> {
     let mut chars = content.char_indices();
 
     loop {
-        for _ in chars.by_ref().take_while_ref(|&(_, c)| ! c.is_alphabetic()) {}
+        for _ in chars.by_ref().take_while_ref(|&(_, c)| !c.is_alphabetic()) {}
 
         let (first, last) = {
             let mut words = chars.by_ref().take_while_ref(|&(_, c)| c.is_alphabetic());
@@ -41,23 +41,26 @@ fn index_document(content: &str) -> HashMap<String, Vec<ValidExtent>> {
 
         let extent = match (first, last) {
             (Some(s), Some(e)) => (s.0 as u64, e.0 as u64 + 1),
-            (Some(s), None)    => (s.0 as u64, s.0 as u64 + 1),
-            (None, _)          => break,
+            (Some(s), None) => (s.0 as u64, s.0 as u64 + 1),
+            (None, _) => break,
         };
 
         let word = content[(extent.0 as usize)..(extent.1 as usize)].to_lowercase();
 
-        index.entry(word).or_insert_with(Vec::new).push((extent.0, extent.1));
+        index
+            .entry(word)
+            .or_insert_with(Vec::new)
+            .push((extent.0, extent.1));
     }
 
     index
 }
 
-fn json_to_query<'a>(json: &Json,
-                     index: &'a HashMap<String, Vec<ValidExtent>>,
-                     layers: &'a HashMap<String, Vec<ValidExtent>>)
-                     -> Result<Box<Algebra + 'a>, &'static str>
-{
+fn json_to_query<'a>(
+    json: &Json,
+    index: &'a HashMap<String, Vec<ValidExtent>>,
+    layers: &'a HashMap<String, Vec<ValidExtent>>,
+) -> Result<Box<Algebra + 'a>, &'static str> {
     let op: Box<Algebra> = match *json {
         Json::String(ref s) => Box::new(index.get(s).map(Vec::as_slice).unwrap_or(&[])),
         Json::Array(ref a) => {
@@ -88,16 +91,16 @@ fn json_to_query<'a>(json: &Json,
             let b = json_to_query(rhs, index, layers)?;
 
             match cmd.as_str() {
-                "<"  => Box::new(ContainedIn::new(a, b)),
-                ">"  => Box::new(Containing::new(a, b)),
+                "<" => Box::new(ContainedIn::new(a, b)),
+                ">" => Box::new(Containing::new(a, b)),
                 "/<" => Box::new(NotContainedIn::new(a, b)),
                 "/>" => Box::new(NotContaining::new(a, b)),
-                "&"  => Box::new(BothOf::new(a, b)),
-                "|"  => Box::new(OneOf::new(a, b)),
+                "&" => Box::new(BothOf::new(a, b)),
+                "|" => Box::new(OneOf::new(a, b)),
                 "->" => Box::new(FollowedBy::new(a, b)),
-                _    => return Err("Unknown op"),
+                _ => return Err("Unknown op"),
             }
-        },
+        }
         _ => Box::new(Empty),
     };
 
@@ -144,7 +147,11 @@ fn index() -> Index {
     }
 }
 
-fn query_stdin(data: Vec<String>, index: HashMap<String, Vec<ValidExtent>>, layers: HashMap<String, Vec<ValidExtent>>) {
+fn query_stdin(
+    data: Vec<String>,
+    index: HashMap<String, Vec<ValidExtent>>,
+    layers: HashMap<String, Vec<ValidExtent>>,
+) {
     let stdin = io::stdin();
 
     for line in stdin.lock().lines() {
@@ -155,12 +162,15 @@ fn query_stdin(data: Vec<String>, index: HashMap<String, Vec<ValidExtent>>, laye
             Err(e) => {
                 println!("Error: {}", e);
                 continue;
-            },
+            }
         };
 
         let op = match json_to_query(&q, &index, &layers) {
             Ok(op) => op,
-            Err(e) => { println!("Error: {}", e); continue },
+            Err(e) => {
+                println!("Error: {}", e);
+                continue;
+            }
         };
 
         for extent in op.iter_tau() {

@@ -1,9 +1,10 @@
 use itertools::Itertools;
-use rustc_serialize::json::{self, Json};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::{collections::HashMap, env, fs, io, io::prelude::*};
 use strata::*;
 
-#[derive(Debug, Clone, RustcDecodable, RustcEncodable)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 struct InputDocument {
     text: String,
     layers: HashMap<String, Vec<ValidExtent>>,
@@ -11,7 +12,7 @@ struct InputDocument {
 
 fn read_document(filename: &str) -> InputDocument {
     let s = fs::read_to_string(filename).unwrap();
-    json::decode(&s).unwrap()
+    serde_json::from_str(&s).unwrap()
 }
 
 fn index_document(content: &str) -> HashMap<String, Vec<ValidExtent>> {
@@ -44,13 +45,13 @@ fn index_document(content: &str) -> HashMap<String, Vec<ValidExtent>> {
 }
 
 fn json_to_query<'a>(
-    json: &Json,
+    json: &Value,
     index: &'a HashMap<String, Vec<ValidExtent>>,
     layers: &'a HashMap<String, Vec<ValidExtent>>,
 ) -> Result<Box<Algebra + 'a>, &'static str> {
     let op: Box<Algebra> = match *json {
-        Json::String(ref s) => Box::new(index.get(s).map(Vec::as_slice).unwrap_or(&[])),
-        Json::Array(ref a) => {
+        Value::String(ref s) => Box::new(index.get(s).map(Vec::as_slice).unwrap_or(&[])),
+        Value::Array(ref a) => {
             let cmd = a.get(0);
             let lhs = a.get(1);
             let rhs = a.get(2);
@@ -61,12 +62,12 @@ fn json_to_query<'a>(
             };
 
             let cmd = match *cmd {
-                Json::String(ref s) => s,
+                Value::String(ref s) => s,
                 _ => return Err("Not a valid op"),
             };
 
             if cmd == "L" {
-                if let Json::String(ref s) = *lhs {
+                if let Value::String(ref s) = *lhs {
                     let z = layers.get(s).map(Vec::as_slice).unwrap_or(&[]);
                     return Ok(Box::new(z));
                 } else {
@@ -144,7 +145,7 @@ fn query_stdin(
     for line in stdin.lock().lines() {
         let l = line.unwrap();
 
-        let q = match Json::from_str(&l) {
+        let q = match serde_json::from_str(&l) {
             Ok(q) => q,
             Err(e) => {
                 println!("Error: {}", e);

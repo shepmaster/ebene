@@ -48,8 +48,8 @@ fn json_to_query<'a>(
     json: &Value,
     index: &'a HashMap<String, Vec<ValidExtent>>,
     layers: &'a HashMap<String, Vec<ValidExtent>>,
-) -> Result<Box<Algebra + 'a>, &'static str> {
-    let op: Box<Algebra> = match *json {
+) -> Result<Box<dyn Algebra + 'a>, &'static str> {
+    let op: Box<dyn Algebra> = match *json {
         Value::String(ref s) => Box::new(index.get(s).map(Vec::as_slice).unwrap_or(&[])),
         Value::Array(ref a) => {
             let cmd = a.get(0);

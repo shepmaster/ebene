@@ -52,41 +52,35 @@ fn json_to_query<'a>(
     let op: Box<dyn Algebra> = match *json {
         Value::String(ref s) => Box::new(index.get(s).map(Vec::as_slice).unwrap_or(&[])),
         Value::Array(ref a) => {
-            let cmd = a.get(0);
-            let lhs = a.get(1);
-            let rhs = a.get(2);
-
-            let (cmd, lhs, rhs) = match (cmd, lhs, rhs) {
-                (Some(a), Some(b), Some(c)) => (a, b, c),
-                _ => return Err("Malformed op"),
-            };
-
-            let cmd = match *cmd {
-                Value::String(ref s) => s,
-                _ => return Err("Not a valid op"),
+            let cmd = match a.get(0) {
+                Some(Value::String(s)) => s,
+                _ => return Err("Must provide a string operation as the first array element"),
             };
 
             if cmd == "L" {
-                if let Value::String(ref s) = *lhs {
-                    let z = layers.get(s).map(Vec::as_slice).unwrap_or(&[]);
-                    return Ok(Box::new(z));
+                if let Some(Value::String(name)) = a.get(1) {
+                    let layer = layers.get(name).map(Vec::as_slice).unwrap_or(&[]);
+                    return Ok(Box::new(layer));
                 } else {
                     return Err("bad layer request");
                 }
             }
 
-            let a = json_to_query(lhs, index, layers)?;
-            let b = json_to_query(rhs, index, layers)?;
+            let lhs = a.get(1).ok_or("This command requires two arguments")?;
+            let rhs = a.get(2).ok_or("This command requires two arguments")?;
+
+            let lhs = json_to_query(lhs, index, layers)?;
+            let rhs = json_to_query(rhs, index, layers)?;
 
             match cmd.as_str() {
-                "<" => Box::new(ContainedIn::new(a, b)),
-                ">" => Box::new(Containing::new(a, b)),
-                "/<" => Box::new(NotContainedIn::new(a, b)),
-                "/>" => Box::new(NotContaining::new(a, b)),
-                "&" => Box::new(BothOf::new(a, b)),
-                "|" => Box::new(OneOf::new(a, b)),
-                "->" => Box::new(FollowedBy::new(a, b)),
-                _ => return Err("Unknown op"),
+                "<" => Box::new(ContainedIn::new(lhs, rhs)),
+                ">" => Box::new(Containing::new(lhs, rhs)),
+                "/<" => Box::new(NotContainedIn::new(lhs, rhs)),
+                "/>" => Box::new(NotContaining::new(lhs, rhs)),
+                "&" => Box::new(BothOf::new(lhs, rhs)),
+                "|" => Box::new(OneOf::new(lhs, rhs)),
+                "->" => Box::new(FollowedBy::new(lhs, rhs)),
+                _ => return Err("Unknown operation"),
             }
         }
         _ => Box::new(Empty),

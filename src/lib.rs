@@ -1109,7 +1109,7 @@ mod test {
             RandomExtentList(extents)
         }
 
-        fn shrink(&self) -> Box<Iterator<Item = Self>> {
+        fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
             Box::new(RandomExtentListShrinker(self.0.clone()))
         }
     }
@@ -1878,20 +1878,20 @@ mod test {
     }
 
     trait QuickcheckAlgebra: Algebra + Debug {
-        fn clone_quickcheck_algebra(&self) -> Box<QuickcheckAlgebra + Send>;
+        fn clone_quickcheck_algebra(&self) -> Box<dyn QuickcheckAlgebra + Send>;
     }
 
     impl<A> QuickcheckAlgebra for A
     where
         A: Algebra + Debug + Clone + Send + 'static,
     {
-        fn clone_quickcheck_algebra(&self) -> Box<QuickcheckAlgebra + Send> {
+        fn clone_quickcheck_algebra(&self) -> Box<dyn QuickcheckAlgebra + Send> {
             Box::new(self.clone())
         }
     }
 
     #[derive(Debug)]
-    struct ArbitraryAlgebraTree(Box<QuickcheckAlgebra + Send>);
+    struct ArbitraryAlgebraTree(Box<dyn QuickcheckAlgebra + Send>);
 
     impl Clone for ArbitraryAlgebraTree {
         fn clone(&self) -> ArbitraryAlgebraTree {
@@ -1934,7 +1934,7 @@ mod test {
                     let a = inner(g, size / 2);
                     let b = inner(g, size / 2);
 
-                    let c: Box<QuickcheckAlgebra + Send> = match g.gen_range(0, 7) {
+                    let c: Box<dyn QuickcheckAlgebra + Send> = match g.gen_range(0, 7) {
                         0 => Box::new(ContainedIn { a, b }),
                         1 => Box::new(Containing { a, b }),
                         2 => Box::new(NotContainedIn { a, b }),

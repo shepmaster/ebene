@@ -1,3 +1,5 @@
+#![deny(rust_2018_idioms)]
+
 use crate::Position::*;
 use std::{
     cmp::{max, min},
@@ -98,7 +100,6 @@ impl From<ValidExtent> for Extent {
 /// 4. Swap comparison operators
 ///
 /// [paper]: http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.330.8436&rank=1
-#[allow(unused_variables)]
 pub trait Algebra {
     /// The first extent starting at or after the position k.
     fn tau(&self, k: Position) -> Extent;

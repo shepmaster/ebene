@@ -1,4 +1,4 @@
-# Strata example
+# Ebene example
 
 This program is a small example of how the query functionality can work.
 

@@ -1,3 +1,3 @@
-# Strata
+# Ebene
 
-See [Strata-Rust](https://github.com/shepmaster/strata-rust) for now.
+See [Ebene-Rust](https://github.com/shepmaster/ebene-rust) for now.

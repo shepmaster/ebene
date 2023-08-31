@@ -2,7 +2,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{collections::HashMap, env, fs, io, io::prelude::*};
-use strata::*;
+use ebene::*;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 struct InputDocument {
